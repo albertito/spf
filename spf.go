@@ -1,23 +1,34 @@
 // Package spf implements SPF (Sender Policy Framework) lookup and validation.
 //
-// Supported:
-//  - "all".
-//  - "include".
-//  - "a".
-//  - "mx".
-//  - "ip4".
-//  - "ip6".
-//  - "redirect".
+// Sender Policy Framework (SPF) is a simple email-validation system designed
+// to detect email spoofing by providing a mechanism to allow receiving mail
+// exchangers to check that incoming mail from a domain comes from a host
+// authorized by that domain's administrators [Wikipedia].
+//
+// This is a Go implementation of it, which is used by the chasquid SMTP
+// server (https://blitiri.com.ar/p/chasquid/).
+//
+// Supported mechanisms and modifiers:
+//   all
+//   include
+//   a
+//   mx
+//   ip4
+//   ip6
+//   redirect
 //
 // Not supported (return Neutral if used):
-//  - "exists".
-//  - "exp".
-//  - Macros.
+//   exists
+//   exp
+//   Macros
+//
+// This is intentional and there are no plans to add them for now, as they are
+// very rare, convoluted and not worth the additional complexity.
 //
 // References:
-// https://tools.ietf.org/html/rfc7208
-// https://en.wikipedia.org/wiki/Sender_Policy_Framework
-package spf
+//   https://tools.ietf.org/html/rfc7208
+//   https://en.wikipedia.org/wiki/Sender_Policy_Framework
+package spf // import "blitiri.com.ar/go/spf"
 
 import (
 	"fmt"
@@ -39,6 +50,7 @@ var (
 // https://tools.ietf.org/html/rfc7208#section-8
 type Result string
 
+// Valid results.
 var (
 	// https://tools.ietf.org/html/rfc7208#section-8.1
 	// Not able to reach any conclusion.
@@ -69,16 +81,15 @@ var (
 	PermError = Result("permerror")
 )
 
-var QualToResult = map[byte]Result{
+var qualToResult = map[byte]Result{
 	'+': Pass,
 	'-': Fail,
 	'~': SoftFail,
 	'?': Neutral,
 }
 
-// CheckHost function fetches SPF records, parses them, and evaluates them to
-// determine whether a particular host is or is not permitted to send mail
-// with a given identity.
+// CheckHost fetches SPF records for `domain`, parses them, and evaluates them
+// to determine if `ip` is permitted to send mail for it.
 // Reference: https://tools.ietf.org/html/rfc7208#section-4
 func CheckHost(ip net.IP, domain string) (Result, error) {
 	r := &resolution{ip, 0, nil}
@@ -144,7 +155,7 @@ func (r *resolution) Check(domain string) (Result, error) {
 
 		// See if we have a qualifier, defaulting to + (pass).
 		// https://tools.ietf.org/html/rfc7208#section-4.6.2
-		result, ok := QualToResult[field[0]]
+		result, ok := qualToResult[field[0]]
 		if ok {
 			field = field[1:]
 		} else {
