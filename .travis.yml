@@ -1,0 +1,16 @@
+# Configuration for https://travis-ci.org/
+
+language: go
+dist: trusty
+sudo: false
+
+go_import_path: blitiri.com.ar/go/spf
+
+go:
+    - 1.7
+    - stable
+    - master
+
+script:
+    - go test ./...
+    - go test -race ./...
