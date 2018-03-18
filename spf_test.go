@@ -55,34 +55,42 @@ func TestBasic(t *testing.T) {
 	cases := []struct {
 		txt string
 		res Result
+		err error
 	}{
-		{"", None},
-		{"blah", None},
-		{"v=spf1", Neutral},
-		{"v=spf1 ", Neutral},
-		{"v=spf1 -", PermError},
-		{"v=spf1 all", Pass},
-		{"v=spf1  +all", Pass},
-		{"v=spf1 -all ", Fail},
-		{"v=spf1 ~all", SoftFail},
-		{"v=spf1 ?all", Neutral},
-		{"v=spf1 a ~all", SoftFail},
-		{"v=spf1 a/24", Neutral},
-		{"v=spf1 a:d1110/24", Pass},
-		{"v=spf1 a:d1110", Neutral},
-		{"v=spf1 a:d1111", Pass},
-		{"v=spf1 a:nothing/24", Neutral},
-		{"v=spf1 mx", Neutral},
-		{"v=spf1 mx/24", Neutral},
-		{"v=spf1 mx:a/montoto ~all", PermError},
-		{"v=spf1 mx:d1110/24 ~all", Pass},
-		{"v=spf1 ip4:1.2.3.4 ~all", SoftFail},
-		{"v=spf1 ip6:12 ~all", PermError},
-		{"v=spf1 ip4:1.1.1.1 -all", Pass},
-		{"v=spf1 ptr -all", Pass},
-		{"v=spf1 ptr:d1111 -all", Pass},
-		{"v=spf1 ptr:lalala -all", Pass},
-		{"v=spf1 blah", PermError},
+		{"", None, nil},
+		{"blah", None, nil},
+		{"v=spf1", Neutral, nil},
+		{"v=spf1 ", Neutral, nil},
+		{"v=spf1 -", PermError, errUnknownField},
+		{"v=spf1 all", Pass, errMatchedAll},
+		{"v=spf1  +all", Pass, errMatchedAll},
+		{"v=spf1 -all ", Fail, errMatchedAll},
+		{"v=spf1 ~all", SoftFail, errMatchedAll},
+		{"v=spf1 ?all", Neutral, errMatchedAll},
+		{"v=spf1 a ~all", SoftFail, errMatchedAll},
+		{"v=spf1 a/24", Neutral, nil},
+		{"v=spf1 a:d1110/24", Pass, errMatchedA},
+		{"v=spf1 a:d1110/montoto", PermError, errInvalidMask},
+		{"v=spf1 a:d1110/99", PermError, errInvalidMask},
+		{"v=spf1 a:d1110/32", Neutral, nil},
+		{"v=spf1 a:d1110", Neutral, nil},
+		{"v=spf1 a:d1111", Pass, errMatchedA},
+		{"v=spf1 a:nothing/24", Neutral, nil},
+		{"v=spf1 mx", Neutral, nil},
+		{"v=spf1 mx/24", Neutral, nil},
+		{"v=spf1 mx:a/montoto ~all", PermError, errInvalidMask},
+		{"v=spf1 mx:d1110/24 ~all", Pass, errMatchedMX},
+		{"v=spf1 mx:d1110/99 ~all", PermError, errInvalidMask},
+		{"v=spf1 ip4:1.2.3.4 ~all", SoftFail, errMatchedAll},
+		{"v=spf1 ip6:12 ~all", PermError, errInvalidIP},
+		{"v=spf1 ip4:1.1.1.1 -all", Pass, errMatchedIP},
+		{"v=spf1 ip4:1.1.1.1/24 -all", Pass, errMatchedIP},
+		{"v=spf1 ip4:1.1.1.1/lala -all", PermError, errInvalidMask},
+		{"v=spf1 ptr -all", Pass, errMatchedPTR},
+		{"v=spf1 ptr:d1111 -all", Pass, errMatchedPTR},
+		{"v=spf1 ptr:lalala -all", Pass, errMatchedPTR},
+		{"v=spf1 ptr:doesnotexist -all", Fail, errMatchedAll},
+		{"v=spf1 blah", PermError, errUnknownField},
 	}
 
 	ipResults["d1111"] = []net.IP{ip1111}
@@ -98,7 +106,9 @@ func TestBasic(t *testing.T) {
 		}
 		if res != c.res {
 			t.Errorf("%q: expected %q, got %q", c.txt, c.res, res)
-			t.Logf("%q:   error: %v", c.txt, err)
+		}
+		if err != c.err {
+			t.Errorf("%q: expected error [%v], got [%v]", c.txt, c.err, err)
 		}
 	}
 }
@@ -107,21 +117,22 @@ func TestIPv6(t *testing.T) {
 	cases := []struct {
 		txt string
 		res Result
+		err error
 	}{
-		{"v=spf1 all", Pass},
-		{"v=spf1 a ~all", SoftFail},
-		{"v=spf1 a/24", Neutral},
-		{"v=spf1 a:d6660/24", Pass},
-		{"v=spf1 a:d6660", Neutral},
-		{"v=spf1 a:d6666", Pass},
-		{"v=spf1 a:nothing/24", Neutral},
-		{"v=spf1 mx:d6660/24 ~all", Pass},
-		{"v=spf1 ip6:2001:db8::68 ~all", Pass},
-		{"v=spf1 ip6:2001:db8::1/24 ~all", Pass},
-		{"v=spf1 ip6:2001:db8::1/100 ~all", Pass},
-		{"v=spf1 ptr -all", Pass},
-		{"v=spf1 ptr:d6666 -all", Pass},
-		{"v=spf1 ptr:sonlas6 -all", Pass},
+		{"v=spf1 all", Pass, errMatchedAll},
+		{"v=spf1 a ~all", SoftFail, errMatchedAll},
+		{"v=spf1 a/24", Neutral, nil},
+		{"v=spf1 a:d6660/24", Pass, errMatchedA},
+		{"v=spf1 a:d6660", Neutral, nil},
+		{"v=spf1 a:d6666", Pass, errMatchedA},
+		{"v=spf1 a:nothing/24", Neutral, nil},
+		{"v=spf1 mx:d6660/24 ~all", Pass, errMatchedMX},
+		{"v=spf1 ip6:2001:db8::68 ~all", Pass, errMatchedIP},
+		{"v=spf1 ip6:2001:db8::1/24 ~all", Pass, errMatchedIP},
+		{"v=spf1 ip6:2001:db8::1/100 ~all", Pass, errMatchedIP},
+		{"v=spf1 ptr -all", Pass, errMatchedPTR},
+		{"v=spf1 ptr:d6666 -all", Pass, errMatchedPTR},
+		{"v=spf1 ptr:sonlas6 -all", Pass, errMatchedPTR},
 	}
 
 	ipResults["d6666"] = []net.IP{ip6666}
@@ -137,25 +148,29 @@ func TestIPv6(t *testing.T) {
 		}
 		if res != c.res {
 			t.Errorf("%q: expected %q, got %q", c.txt, c.res, res)
-			t.Logf("%q:   error: %v", c.txt, err)
+		}
+		if err != c.err {
+			t.Errorf("%q: expected error [%v], got [%v]", c.txt, c.err, err)
 		}
 	}
 }
 
 func TestNotSupported(t *testing.T) {
-	cases := []string{
-		"v=spf1 exists:blah -all",
-		"v=spf1 exp=blah -all",
-		"v=spf1 a:%{o} -all",
-		"v=spf1 redirect=_spf.%{d}",
+	cases := []struct {
+		txt string
+		err error
+	}{
+		{"v=spf1 exists:blah -all", errExistsNotSupported},
+		{"v=spf1 exp=blah -all", errExpNotSupported},
+		{"v=spf1 a:%{o} -all", errMacrosNotSupported},
+		{"v=spf1 redirect=_spf.%{d}", errMacrosNotSupported},
 	}
 
-	for _, txt := range cases {
-		txtResults["domain"] = []string{txt}
+	for _, c := range cases {
+		txtResults["domain"] = []string{c.txt}
 		res, err := CheckHost(ip1111, "domain")
-		if res != Neutral {
-			t.Errorf("%q: expected neutral, got %v", txt, res)
-			t.Logf("%q:   error: %v", txt, err)
+		if res != Neutral || err != c.err {
+			t.Errorf("%q: expected neutral/%q, got %v/%q", c.txt, c.err, res, err)
 		}
 	}
 }
@@ -164,7 +179,7 @@ func TestRecursion(t *testing.T) {
 	txtResults["domain"] = []string{"v=spf1 include:domain ~all"}
 
 	res, err := CheckHost(ip1111, "domain")
-	if res != PermError {
+	if res != PermError || err != errLookupLimitReached {
 		t.Errorf("expected permerror, got %v (%v)", res, err)
 	}
 }
@@ -191,7 +206,7 @@ func TestInvalidRedirect(t *testing.T) {
 	}
 
 	res, err = CheckHost(ip1111, "domain")
-	if res != PermError {
+	if res != PermError || err != nil {
 		t.Errorf("expected permerror, got %v (%v)", res, err)
 	}
 }
@@ -203,13 +218,13 @@ func TestRedirectOrder(t *testing.T) {
 
 	txtResults["domain"] = []string{"v=spf1 redirect=faildom"}
 	res, err := CheckHost(ip1111, "domain")
-	if res != Fail {
+	if res != Fail || err != errMatchedAll {
 		t.Errorf("expected fail, got %v (%v)", res, err)
 	}
 
 	txtResults["domain"] = []string{"v=spf1 redirect=faildom all"}
 	res, err = CheckHost(ip1111, "domain")
-	if res != Pass {
+	if res != Pass || err != errMatchedAll {
 		t.Errorf("expected pass, got %v (%v)", res, err)
 	}
 }

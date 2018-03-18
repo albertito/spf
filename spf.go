@@ -88,6 +88,22 @@ var qualToResult = map[byte]Result{
 	'?': Neutral,
 }
 
+var (
+	errLookupLimitReached = fmt.Errorf("lookup limit reached")
+	errMacrosNotSupported = fmt.Errorf("macros not supported")
+	errExistsNotSupported = fmt.Errorf("'exists' not supported")
+	errExpNotSupported    = fmt.Errorf("'exp' not supported")
+	errUnknownField       = fmt.Errorf("unknown field")
+	errInvalidIP          = fmt.Errorf("invalid ipX value")
+	errInvalidMask        = fmt.Errorf("invalid mask")
+
+	errMatchedAll = fmt.Errorf("matched 'all'")
+	errMatchedA   = fmt.Errorf("matched 'a'")
+	errMatchedIP  = fmt.Errorf("matched 'ip'")
+	errMatchedMX  = fmt.Errorf("matched 'mx'")
+	errMatchedPTR = fmt.Errorf("matched 'ptr'")
+)
+
 // CheckHost fetches SPF records for `domain`, parses them, and evaluates them
 // to determine if `ip` is permitted to send mail for it.
 // Reference: https://tools.ietf.org/html/rfc7208#section-4
@@ -144,11 +160,11 @@ func (r *resolution) Check(domain string) (Result, error) {
 		// Limit the number of resolutions to 10
 		// https://tools.ietf.org/html/rfc7208#section-4.6.4
 		if r.count > 10 {
-			return PermError, fmt.Errorf("lookup limit reached")
+			return PermError, errLookupLimitReached
 		}
 
 		if strings.Contains(field, "%") {
-			return Neutral, fmt.Errorf("macros not supported")
+			return Neutral, errMacrosNotSupported
 		}
 
 		// See if we have a qualifier, defaulting to + (pass).
@@ -162,7 +178,7 @@ func (r *resolution) Check(domain string) (Result, error) {
 
 		if field == "all" {
 			// https://tools.ietf.org/html/rfc7208#section-5.1
-			return result, fmt.Errorf("matched 'all'")
+			return result, errMatchedAll
 		} else if strings.HasPrefix(field, "include:") {
 			if ok, res, err := r.includeField(result, field); ok {
 				return res, err
@@ -184,9 +200,9 @@ func (r *resolution) Check(domain string) (Result, error) {
 				return res, err
 			}
 		} else if strings.HasPrefix(field, "exists") {
-			return Neutral, fmt.Errorf("'exists' not supported")
+			return Neutral, errExistsNotSupported
 		} else if strings.HasPrefix(field, "exp=") {
-			return Neutral, fmt.Errorf("'exp' not supported")
+			return Neutral, errExpNotSupported
 		} else if strings.HasPrefix(field, "redirect=") {
 			// https://tools.ietf.org/html/rfc7208#section-6.1
 			result, err := r.Check(field[len("redirect="):])
@@ -196,7 +212,7 @@ func (r *resolution) Check(domain string) (Result, error) {
 			return result, err
 		} else {
 			// http://www.openspf.org/SPF_Record_Syntax
-			return PermError, fmt.Errorf("unknown field %q", field)
+			return PermError, errUnknownField
 		}
 	}
 
@@ -242,18 +258,18 @@ func (r *resolution) ipField(res Result, field string) (bool, Result, error) {
 	if strings.Contains(fip, "/") {
 		_, ipnet, err := net.ParseCIDR(fip)
 		if err != nil {
-			return true, PermError, err
+			return true, PermError, errInvalidMask
 		}
 		if ipnet.Contains(r.ip) {
-			return true, res, fmt.Errorf("matched %v", ipnet)
+			return true, res, errMatchedIP
 		}
 	} else {
 		ip := net.ParseIP(fip)
 		if ip == nil {
-			return true, PermError, fmt.Errorf("invalid ipX value")
+			return true, PermError, errInvalidIP
 		}
 		if ip.Equal(r.ip) {
-			return true, res, fmt.Errorf("matched %v", ip)
+			return true, res, errMatchedIP
 		}
 	}
 
@@ -283,7 +299,7 @@ func (r *resolution) ptrField(res Result, field, domain string) (bool, Result, e
 
 	for _, n := range r.ipNames {
 		if strings.HasSuffix(n, domain+".") {
-			return true, res, fmt.Errorf("matched ptr:%s", domain)
+			return true, res, errMatchedPTR
 		}
 	}
 
@@ -314,15 +330,15 @@ func ipMatch(ip, tomatch net.IP, mask int) (bool, error) {
 	if mask >= 0 {
 		_, ipnet, err := net.ParseCIDR(fmt.Sprintf("%s/%d", tomatch.String(), mask))
 		if err != nil {
-			return false, err
+			return false, errInvalidMask
 		}
 		if ipnet.Contains(ip) {
-			return true, fmt.Errorf("%v", ipnet)
+			return true, nil
 		}
 		return false, nil
 	} else {
 		if ip.Equal(tomatch) {
-			return true, fmt.Errorf("%v", tomatch)
+			return true, nil
 		}
 		return false, nil
 	}
@@ -341,7 +357,7 @@ func domainAndMask(re *regexp.Regexp, field, domain string) (string, int, error)
 		if groups[4] != "" {
 			mask, err = strconv.Atoi(groups[4])
 			if err != nil {
-				return "", -1, fmt.Errorf("error parsing mask")
+				return "", -1, errInvalidMask
 			}
 		}
 	}
@@ -369,7 +385,7 @@ func (r *resolution) aField(res Result, field, domain string) (bool, Result, err
 	for _, ip := range ips {
 		ok, err := ipMatch(r.ip, ip, mask)
 		if ok {
-			return true, res, fmt.Errorf("matched 'a' (%v)", err)
+			return true, res, errMatchedA
 		} else if err != nil {
 			return true, PermError, err
 		}
@@ -411,7 +427,7 @@ func (r *resolution) mxField(res Result, field, domain string) (bool, Result, er
 	for _, ip := range mxips {
 		ok, err := ipMatch(r.ip, ip, mask)
 		if ok {
-			return true, res, fmt.Errorf("matched 'mx' (%v)", err)
+			return true, res, errMatchedMX
 		} else if err != nil {
 			return true, PermError, err
 		}
