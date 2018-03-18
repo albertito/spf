@@ -105,13 +105,7 @@ type resolution struct {
 }
 
 func (r *resolution) Check(domain string) (Result, error) {
-	// Limit the number of resolutions to 10
-	// https://tools.ietf.org/html/rfc7208#section-4.6.4
-	if r.count > 10 {
-		return PermError, fmt.Errorf("lookup limit reached")
-	}
 	r.count++
-
 	txt, err := getDNSRecord(domain)
 	if err != nil {
 		if isTemporary(err) {
@@ -146,9 +140,13 @@ func (r *resolution) Check(domain string) (Result, error) {
 		if strings.HasPrefix(field, "v=") {
 			continue
 		}
+
+		// Limit the number of resolutions to 10
+		// https://tools.ietf.org/html/rfc7208#section-4.6.4
 		if r.count > 10 {
 			return PermError, fmt.Errorf("lookup limit reached")
 		}
+
 		if strings.Contains(field, "%") {
 			return Neutral, fmt.Errorf("macros not supported")
 		}
