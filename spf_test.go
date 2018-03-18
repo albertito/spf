@@ -270,3 +270,71 @@ func TestNoRecord(t *testing.T) {
 		}
 	}
 }
+
+func TestDNSTemporaryErrors(t *testing.T) {
+	dnsError := &net.DNSError{
+		Err:         "temporary error for testing",
+		IsTemporary: true,
+	}
+
+	// Domain "tmperr" will fail resolution with a temporary error.
+	txtErrors["tmperr"] = dnsError
+	ipErrors["tmperr"] = dnsError
+	mxErrors["tmperr"] = dnsError
+	mxResults["tmpmx"] = []*net.MX{{"tmperr", 10}}
+	addrErrors["1.1.1.1"] = dnsError
+
+	cases := []struct {
+		txt string
+		res Result
+	}{
+		{"v=spf1 include:tmperr", TempError},
+		{"v=spf1 a:tmperr", TempError},
+		{"v=spf1 mx:tmperr", TempError},
+		{"v=spf1 ptr:tmperr", TempError},
+		{"v=spf1 mx:tmpmx", TempError},
+	}
+
+	for _, c := range cases {
+		txtResults["domain"] = []string{c.txt}
+		res, err := CheckHost(ip1111, "domain")
+		if res != c.res {
+			t.Errorf("%q: expected %v, got %v (%v)",
+				c.txt, c.res, res, err)
+		}
+	}
+}
+
+func TestDNSPermanentErrors(t *testing.T) {
+	dnsError := &net.DNSError{
+		Err:         "permanent error for testing",
+		IsTemporary: false,
+	}
+
+	// Domain "tmperr" will fail resolution with a temporary error.
+	txtErrors["tmperr"] = dnsError
+	ipErrors["tmperr"] = dnsError
+	mxErrors["tmperr"] = dnsError
+	mxResults["tmpmx"] = []*net.MX{{"tmperr", 10}}
+	addrErrors["1.1.1.1"] = dnsError
+
+	cases := []struct {
+		txt string
+		res Result
+	}{
+		{"v=spf1 include:tmperr", PermError},
+		{"v=spf1 a:tmperr", Neutral},
+		{"v=spf1 mx:tmperr", Neutral},
+		{"v=spf1 ptr:tmperr", Neutral},
+		{"v=spf1 mx:tmpmx", Neutral},
+	}
+
+	for _, c := range cases {
+		txtResults["domain"] = []string{c.txt}
+		res, err := CheckHost(ip1111, "domain")
+		if res != c.res {
+			t.Errorf("%q: expected %v, got %v (%v)",
+				c.txt, c.res, res, err)
+		}
+	}
+}
