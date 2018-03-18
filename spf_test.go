@@ -147,6 +147,7 @@ func TestNotSupported(t *testing.T) {
 		"v=spf1 exists:blah -all",
 		"v=spf1 exp=blah -all",
 		"v=spf1 a:%{o} -all",
+		"v=spf1 redirect=_spf.%{d}",
 	}
 
 	for _, txt := range cases {
@@ -165,6 +166,51 @@ func TestRecursion(t *testing.T) {
 	res, err := CheckHost(ip1111, "domain")
 	if res != PermError {
 		t.Errorf("expected permerror, got %v (%v)", res, err)
+	}
+}
+
+func TestRedirect(t *testing.T) {
+	txtResults["domain"] = []string{"v=spf1 redirect=domain2"}
+	txtResults["domain2"] = []string{"v=spf1 ip4:1.1.1.1 -all"}
+
+	res, err := CheckHost(ip1111, "domain")
+	if res != Pass {
+		t.Errorf("expected pass, got %v (%v)", res, err)
+	}
+}
+
+func TestInvalidRedirect(t *testing.T) {
+	// Redirect to a non-existing host; the inner check returns None, but due
+	// to the redirection, this lookup should return PermError.
+	// https://tools.ietf.org/html/rfc7208#section-6.1
+	txtResults["domain"] = []string{"v=spf1 redirect=doesnotexist"}
+
+	res, err := CheckHost(ip1111, "doesnotexist")
+	if res != None {
+		t.Errorf("expected none, got %v (%v)", res, err)
+	}
+
+	res, err = CheckHost(ip1111, "domain")
+	if res != PermError {
+		t.Errorf("expected permerror, got %v (%v)", res, err)
+	}
+}
+
+func TestRedirectOrder(t *testing.T) {
+	// We should only check redirects after all mechanisms, even if the
+	// redirect modifier appears before them.
+	txtResults["faildom"] = []string{"v=spf1 -all"}
+
+	txtResults["domain"] = []string{"v=spf1 redirect=faildom"}
+	res, err := CheckHost(ip1111, "domain")
+	if res != Fail {
+		t.Errorf("expected fail, got %v (%v)", res, err)
+	}
+
+	txtResults["domain"] = []string{"v=spf1 redirect=faildom all"}
+	res, err = CheckHost(ip1111, "domain")
+	if res != Pass {
+		t.Errorf("expected pass, got %v (%v)", res, err)
 	}
 }
 

@@ -128,7 +128,7 @@ func (r *resolution) Check(domain string) (Result, error) {
 	// we just move them to the end.
 	var newfields, redirects []string
 	for _, field := range fields {
-		if strings.HasPrefix(field, "redirect:") {
+		if strings.HasPrefix(field, "redirect=") {
 			redirects = append(redirects, field)
 		} else {
 			newfields = append(newfields, field)
