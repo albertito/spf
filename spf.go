@@ -96,6 +96,7 @@ var (
 	errUnknownField       = fmt.Errorf("unknown field")
 	errInvalidIP          = fmt.Errorf("invalid ipX value")
 	errInvalidMask        = fmt.Errorf("invalid mask")
+	errNoResult           = fmt.Errorf("lookup yielded no result")
 
 	errMatchedAll = fmt.Errorf("matched 'all'")
 	errMatchedA   = fmt.Errorf("matched 'a'")
@@ -318,12 +319,13 @@ func (r *resolution) includeField(res Result, field string) (bool, Result, error
 		return false, ir, err
 	case TempError:
 		return true, TempError, err
-	case PermError, None:
+	case PermError:
 		return true, PermError, err
+	case None:
+		return true, PermError, errNoResult
 	}
 
 	return false, "", fmt.Errorf("This should never be reached")
-
 }
 
 func ipMatch(ip, tomatch net.IP, mask int) (bool, error) {

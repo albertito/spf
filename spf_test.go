@@ -86,6 +86,7 @@ func TestBasic(t *testing.T) {
 		{"v=spf1 ip4:1.1.1.1 -all", Pass, errMatchedIP},
 		{"v=spf1 ip4:1.1.1.1/24 -all", Pass, errMatchedIP},
 		{"v=spf1 ip4:1.1.1.1/lala -all", PermError, errInvalidMask},
+		{"v=spf1 include:doesnotexist", PermError, errNoResult},
 		{"v=spf1 ptr -all", Pass, errMatchedPTR},
 		{"v=spf1 ptr:d1111 -all", Pass, errMatchedPTR},
 		{"v=spf1 ptr:lalala -all", Pass, errMatchedPTR},
@@ -175,7 +176,35 @@ func TestNotSupported(t *testing.T) {
 	}
 }
 
-func TestRecursion(t *testing.T) {
+func TestInclude(t *testing.T) {
+	// Test that the include is doing a recursive lookup.
+	// If we got a match on 1.1.1.1, is because include:domain2 did not match.
+	txtResults["domain"] = []string{"v=spf1 include:domain2 ip4:1.1.1.1"}
+
+	cases := []struct {
+		txt string
+		res Result
+		err error
+	}{
+		{"", PermError, errNoResult},
+		{"v=spf1 all", Pass, errMatchedAll},
+
+		// domain2 did not pass, so continued and matched parent's ip4.
+		{"v=spf1", Pass, errMatchedIP},
+		{"v=spf1 -all", Pass, errMatchedIP},
+	}
+
+	for _, c := range cases {
+		txtResults["domain2"] = []string{c.txt}
+		res, err := CheckHost(ip1111, "domain")
+		if res != c.res || err != c.err {
+			t.Errorf("%q: expected [%v/%v], got [%v/%v]",
+				c.txt, c.res, c.err, res, err)
+		}
+	}
+}
+
+func TestRecursionLimit(t *testing.T) {
 	txtResults["domain"] = []string{"v=spf1 include:domain ~all"}
 
 	res, err := CheckHost(ip1111, "domain")
