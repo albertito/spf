@@ -46,8 +46,8 @@ var (
 	lookupAddr = net.LookupAddr
 )
 
-// Results and Errors. Note the values have meaning, we use them in headers.
-// https://tools.ietf.org/html/rfc7208#section-8
+// The Result of an SPF check. Note the values have meaning, we use them in
+// headers.  https://tools.ietf.org/html/rfc7208#section-8
 type Result string
 
 // Valid results.
