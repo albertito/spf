@@ -44,6 +44,7 @@ var (
 	lookupMX   = net.LookupMX
 	lookupIP   = net.LookupIP
 	lookupAddr = net.LookupAddr
+	trace      = func(f string, a ...interface{}) {}
 )
 
 // The Result of an SPF check. Note the values have meaning, we use them in
@@ -109,6 +110,7 @@ var (
 // to determine if `ip` is permitted to send mail for it.
 // Reference: https://tools.ietf.org/html/rfc7208#section-4
 func CheckHost(ip net.IP, domain string) (Result, error) {
+	trace("check host %q %q", ip, domain)
 	r := &resolution{ip, 0, "", nil}
 	return r.Check(domain)
 }
@@ -123,6 +125,7 @@ func CheckHostWithSender(ip net.IP, helo, sender string) (Result, error) {
 		domain = helo
 	}
 
+	trace("check host with sender %q %q %q (%q)", ip, helo, sender, domain)
 	r := &resolution{ip, 0, sender, nil}
 	return r.Check(domain)
 }
@@ -149,19 +152,23 @@ type resolution struct {
 
 func (r *resolution) Check(domain string) (Result, error) {
 	r.count++
+	trace("check %s %d", domain, r.count)
 	txt, err := getDNSRecord(domain)
 	if err != nil {
 		if isTemporary(err) {
+			trace("dns temp error: %v", err)
 			return TempError, err
 		}
 		// Could not resolve the name, it may be missing the record.
 		// https://tools.ietf.org/html/rfc7208#section-2.6.1
+		trace("dns perm error: %v", err)
 		return None, err
 	}
 
 	if txt == "" {
 		// No record => None.
 		// https://tools.ietf.org/html/rfc7208#section-4.6
+		trace("no txt record")
 		return None, nil
 	}
 
@@ -187,6 +194,7 @@ func (r *resolution) Check(domain string) (Result, error) {
 		// Limit the number of resolutions to 10
 		// https://tools.ietf.org/html/rfc7208#section-4.6.4
 		if r.count > 10 {
+			trace("lookup limit reached")
 			return PermError, errLookupLimitReached
 		}
 
@@ -205,32 +213,41 @@ func (r *resolution) Check(domain string) (Result, error) {
 
 		if field == "all" {
 			// https://tools.ietf.org/html/rfc7208#section-5.1
+			trace("%v matched all", result)
 			return result, errMatchedAll
 		} else if strings.HasPrefix(field, "include:") {
 			if ok, res, err := r.includeField(result, field); ok {
+				trace("include ok, %v %v", res, err)
 				return res, err
 			}
 		} else if strings.HasPrefix(field, "a") {
 			if ok, res, err := r.aField(result, field, domain); ok {
+				trace("a ok, %v %v", res, err)
 				return res, err
 			}
 		} else if strings.HasPrefix(field, "mx") {
 			if ok, res, err := r.mxField(result, field, domain); ok {
+				trace("mx ok, %v %v", res, err)
 				return res, err
 			}
 		} else if strings.HasPrefix(field, "ip4:") || strings.HasPrefix(field, "ip6:") {
 			if ok, res, err := r.ipField(result, field); ok {
+				trace("ip ok, %v %v", res, err)
 				return res, err
 			}
 		} else if strings.HasPrefix(field, "ptr") {
 			if ok, res, err := r.ptrField(result, field, domain); ok {
+				trace("ptr ok, %v %v", res, err)
 				return res, err
 			}
 		} else if strings.HasPrefix(field, "exists") {
+			trace("exists, neutral / not supported")
 			return Neutral, errExistsNotSupported
 		} else if strings.HasPrefix(field, "exp=") {
+			trace("exp=, neutral / not supported")
 			return Neutral, errExpNotSupported
 		} else if strings.HasPrefix(field, "redirect=") {
+			trace("redirect, %q", field)
 			// https://tools.ietf.org/html/rfc7208#section-6.1
 			result, err := r.Check(field[len("redirect="):])
 			if result == None {
@@ -239,12 +256,14 @@ func (r *resolution) Check(domain string) (Result, error) {
 			return result, err
 		} else {
 			// http://www.openspf.org/SPF_Record_Syntax
+			trace("permerror, unknown field")
 			return PermError, errUnknownField
 		}
 	}
 
 	// Got to the end of the evaluation without a result => Neutral.
 	// https://tools.ietf.org/html/rfc7208#section-4.7
+	trace("fallback to neutral")
 	return Neutral, nil
 }
 

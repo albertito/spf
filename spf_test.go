@@ -13,6 +13,7 @@ var ip6660 = net.ParseIP("2001:db8::0")
 
 func TestBasic(t *testing.T) {
 	dns = NewDNS()
+	trace = t.Logf
 
 	cases := []struct {
 		txt string
@@ -78,6 +79,7 @@ func TestBasic(t *testing.T) {
 
 func TestIPv6(t *testing.T) {
 	dns = NewDNS()
+	trace = t.Logf
 
 	cases := []struct {
 		txt string
@@ -121,6 +123,7 @@ func TestIPv6(t *testing.T) {
 }
 
 func TestNotSupported(t *testing.T) {
+	trace = t.Logf
 	cases := []struct {
 		txt string
 		err error
@@ -145,6 +148,7 @@ func TestInclude(t *testing.T) {
 	// If we got a match on 1.1.1.1, is because include:domain2 did not match.
 	dns = NewDNS()
 	dns.txt["domain"] = []string{"v=spf1 include:domain2 ip4:1.1.1.1"}
+	trace = t.Logf
 
 	cases := []struct {
 		txt string
@@ -172,6 +176,7 @@ func TestInclude(t *testing.T) {
 func TestRecursionLimit(t *testing.T) {
 	dns = NewDNS()
 	dns.txt["domain"] = []string{"v=spf1 include:domain ~all"}
+	trace = t.Logf
 
 	res, err := CheckHost(ip1111, "domain")
 	if res != PermError || err != errLookupLimitReached {
@@ -183,6 +188,7 @@ func TestRedirect(t *testing.T) {
 	dns = NewDNS()
 	dns.txt["domain"] = []string{"v=spf1 redirect=domain2"}
 	dns.txt["domain2"] = []string{"v=spf1 ip4:1.1.1.1 -all"}
+	trace = t.Logf
 
 	res, err := CheckHost(ip1111, "domain")
 	if res != Pass {
@@ -196,6 +202,7 @@ func TestInvalidRedirect(t *testing.T) {
 	// https://tools.ietf.org/html/rfc7208#section-6.1
 	dns = NewDNS()
 	dns.txt["domain"] = []string{"v=spf1 redirect=doesnotexist"}
+	trace = t.Logf
 
 	res, err := CheckHost(ip1111, "doesnotexist")
 	if res != None {
@@ -213,6 +220,7 @@ func TestRedirectOrder(t *testing.T) {
 	// redirect modifier appears before them.
 	dns = NewDNS()
 	dns.txt["faildom"] = []string{"v=spf1 -all"}
+	trace = t.Logf
 
 	dns.txt["domain"] = []string{"v=spf1 redirect=faildom"}
 	res, err := CheckHost(ip1111, "domain")
@@ -232,6 +240,7 @@ func TestNoRecord(t *testing.T) {
 	dns.txt["d1"] = []string{""}
 	dns.txt["d2"] = []string{"loco", "v=spf2"}
 	dns.errors["nospf"] = fmt.Errorf("no such domain")
+	trace = t.Logf
 
 	for _, domain := range []string{"d1", "d2", "d3", "nospf"} {
 		res, err := CheckHost(ip1111, domain)
@@ -252,6 +261,7 @@ func TestDNSTemporaryErrors(t *testing.T) {
 	dns.errors["tmperr"] = dnsError
 	dns.errors["1.1.1.1"] = dnsError
 	dns.mx["tmpmx"] = []*net.MX{{"tmperr", 10}}
+	trace = t.Logf
 
 	cases := []struct {
 		txt string
@@ -285,6 +295,7 @@ func TestDNSPermanentErrors(t *testing.T) {
 	dns.errors["tmperr"] = dnsError
 	dns.errors["1.1.1.1"] = dnsError
 	dns.mx["tmpmx"] = []*net.MX{{"tmperr", 10}}
+	trace = t.Logf
 
 	cases := []struct {
 		txt string
