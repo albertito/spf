@@ -26,6 +26,7 @@ func TestBasic(t *testing.T) {
 		{"v=spf1 ", Neutral, nil},
 		{"v=spf1 -", PermError, errUnknownField},
 		{"v=spf1 all", Pass, errMatchedAll},
+		{"v=spf1 exp=blah +all", Pass, errMatchedAll},
 		{"v=spf1  +all", Pass, errMatchedAll},
 		{"v=spf1 -all ", Fail, errMatchedAll},
 		{"v=spf1 ~all", SoftFail, errMatchedAll},
@@ -129,7 +130,6 @@ func TestNotSupported(t *testing.T) {
 		err error
 	}{
 		{"v=spf1 exists:blah -all", errExistsNotSupported},
-		{"v=spf1 exp=blah -all", errExpNotSupported},
 		{"v=spf1 a:%{o} -all", errMacrosNotSupported},
 		{"v=spf1 redirect=_spf.%{d}", errMacrosNotSupported},
 	}

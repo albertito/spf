@@ -16,10 +16,10 @@
 //   ip4
 //   ip6
 //   redirect
+//   exp (ignored)
 //
 // Not supported (return Neutral if used):
 //   exists
-//   exp
 //   Macros
 //
 // This is intentional and there are no plans to add them for now, as they are
@@ -93,7 +93,6 @@ var (
 	errLookupLimitReached = fmt.Errorf("lookup limit reached")
 	errMacrosNotSupported = fmt.Errorf("macros not supported")
 	errExistsNotSupported = fmt.Errorf("'exists' not supported")
-	errExpNotSupported    = fmt.Errorf("'exp' not supported")
 	errUnknownField       = fmt.Errorf("unknown field")
 	errInvalidIP          = fmt.Errorf("invalid ipX value")
 	errInvalidMask        = fmt.Errorf("invalid mask")
@@ -244,8 +243,8 @@ func (r *resolution) Check(domain string) (Result, error) {
 			trace("exists, neutral / not supported")
 			return Neutral, errExistsNotSupported
 		} else if strings.HasPrefix(field, "exp=") {
-			trace("exp=, neutral / not supported")
-			return Neutral, errExpNotSupported
+			trace("exp= not used, skipping")
+			continue
 		} else if strings.HasPrefix(field, "redirect=") {
 			trace("redirect, %q", field)
 			// https://tools.ietf.org/html/rfc7208#section-6.1
