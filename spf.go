@@ -97,6 +97,7 @@ var (
 	errInvalidIP          = fmt.Errorf("invalid ipX value")
 	errInvalidMask        = fmt.Errorf("invalid mask")
 	errNoResult           = fmt.Errorf("lookup yielded no result")
+	errMultipleRecords    = fmt.Errorf("multiple matching DNS records")
 
 	errMatchedAll = fmt.Errorf("matched 'all'")
 	errMatchedA   = fmt.Errorf("matched 'a'")
@@ -162,16 +163,20 @@ func (r *resolution) Check(domain string) (Result, error) {
 			trace("dns temp error: %v", err)
 			return TempError, err
 		}
+		if err == errMultipleRecords {
+			trace("multiple dns records")
+			return PermError, err
+		}
 		// Could not resolve the name, it may be missing the record.
 		// https://tools.ietf.org/html/rfc7208#section-2.6.1
 		trace("dns perm error: %v", err)
 		return None, err
 	}
+	trace("dns record %q", txt)
 
 	if txt == "" {
 		// No record => None.
 		// https://tools.ietf.org/html/rfc7208#section-4.6
-		trace("no txt record")
 		return None, nil
 	}
 
@@ -288,22 +293,33 @@ func getDNSRecord(domain string) (string, error) {
 		return "", err
 	}
 
+	records := []string{}
 	for _, txt := range txts {
 		// The version check should be case-insensitive (it's a
 		// case-insensitive constant in the standard).
 		// https://tools.ietf.org/html/rfc7208#section-12
 		if strings.HasPrefix(strings.ToLower(txt), "v=spf1 ") {
-			return txt, nil
+			records = append(records, txt)
 		}
 
 		// An empty record is explicitly allowed:
 		// https://tools.ietf.org/html/rfc7208#section-4.5
 		if strings.ToLower(txt) == "v=spf1" {
-			return txt, nil
+			records = append(records, txt)
 		}
 	}
 
-	return "", nil
+	// 0 records is ok, handled by the parent.
+	// 1 record is what we expect, return the record.
+	// More than that, it's a permanent error:
+	// https://tools.ietf.org/html/rfc7208#section-4.5
+	l := len(records)
+	if l == 0 {
+		return "", nil
+	} else if l == 1 {
+		return records[0], nil
+	}
+	return "", errMultipleRecords
 }
 
 func isTemporary(err error) bool {
