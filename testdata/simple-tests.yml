@@ -1,0 +1,40 @@
+# Simple tests, used for debugging the testing infrastructure.
+
+---
+description: Simple successes
+tests:
+  test1:
+    description: Straightforward sucesss
+    helo: example.net
+    mailfrom: "foobar@example.net"
+    host: 1.2.3.4
+    result: pass
+  test2:
+    description: HELO is set, but expected to be ignored
+    helo: blargh
+    mailfrom: "foobar@example.net"
+    host: 1.2.3.4
+    result: pass
+zonedata:
+  example.net:
+    - SPF:  v=spf1 +all
+---
+description: Simple failures
+tests:
+  test1:
+    description: Straightforward failure
+    helo: example.net
+    mailfrom: "foobar@example.net"
+    host: 1.2.3.4
+    result: fail
+  test2:
+    description: HELO is set, but expected to be ignored
+    helo: blargh
+    mailfrom: "foobar@example.net"
+    host: 1.2.3.4
+    result: fail
+zonedata:
+  example.net:
+    - SPF:  v=spf1 -all
+
+

@@ -158,7 +158,7 @@ tests:
     result: pass
 zonedata:
   example.com:
-    - TIMEOUT
+    - TIMEOUT: true
   example.net:
     - SPF:  v=spf1 -all exp=exp.example.net
   a.example.net:
@@ -262,17 +262,17 @@ zonedata:
     - TXT:  NONE
   spftimeout.example.net:
     - TXT:  v=spf1 -all
-    - TIMEOUT
+    - TIMEOUT: true
   txttimeout.example.net:
     - SPF:  v=spf1 -all
     - TXT:  NONE
-    - TIMEOUT
+    - TIMEOUT: true
   nospftxttimeout.example.net:
     - SPF:  "v=spf3 !a:yahoo.com -all"
     - TXT:  NONE
-    - TIMEOUT
+    - TIMEOUT: true
   alltimeout.example.net:
-    - TIMEOUT
+    - TIMEOUT: true
 ---
 description: Selecting records
 tests:
@@ -1138,7 +1138,7 @@ zonedata:
   ip7.example.com:
     - SPF: v=spf1 ip4:1.2.3.7 ?all
   ip8.example.com:
-    - TIMEOUT
+    - TIMEOUT: true
   erehwon.example.com:
     - TXT: v=spfl am not an SPF record
   e1.example.com:
@@ -1463,7 +1463,7 @@ zonedata:
   mail6.example.com:
     - AAAA: CAFE:BABE::4
   err.example.com:
-    - TIMEOUT
+    - TIMEOUT: true
   e1.example.com:
     - SPF: "v=spf1 exists:"
   e2.example.com:
@@ -2036,7 +2036,7 @@ zonedata:
   e21.example.com:
     - SPF: v=spf1 exp=e21msg.example.com -all
   e21msg.example.com:
-    - TIMEOUT
+    - TIMEOUT: true
   e22.example.com:
     - SPF: v=spf1 exp=mail.example.com -all
   nonascii.example.com:
