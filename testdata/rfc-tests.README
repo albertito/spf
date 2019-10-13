@@ -1,0 +1,8 @@
+
+The RFC tests were copied from the pyspf repository at
+https://github.com/sdgathman/pyspf.
+
+They are licensed separately, and only used for testing purposes.
+
+See the open-spf test suite page for more details:
+http://www.open-spf.org/Test_Suite/
