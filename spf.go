@@ -149,6 +149,10 @@ type resolution struct {
 	ipNames []string
 }
 
+var aField = regexp.MustCompile(`^a$|a:|a/`)
+var mxField = regexp.MustCompile(`^mx$|mx:|mx/`)
+var ptrField = regexp.MustCompile(`^ptr$|ptr:`)
+
 func (r *resolution) Check(domain string) (Result, error) {
 	r.count++
 	trace("check %s %d", domain, r.count)
@@ -186,7 +190,10 @@ func (r *resolution) Check(domain string) (Result, error) {
 	fields = append(newfields, redirects...)
 
 	for _, field := range fields {
-		if strings.HasPrefix(field, "v=") {
+		// The version check should be case-insensitive (it's a
+		// case-insensitive constant in the standard).
+		// https://tools.ietf.org/html/rfc7208#section-12
+		if strings.HasPrefix(field, "v=") || strings.HasPrefix(field, "V=") {
 			continue
 		}
 
@@ -210,42 +217,46 @@ func (r *resolution) Check(domain string) (Result, error) {
 			result = Pass
 		}
 
-		if field == "all" {
+		// Mechanism and modifier names are case-insensitive.
+		// https://tools.ietf.org/html/rfc7208#section-4.6.1
+		lfield := strings.ToLower(field)
+
+		if lfield == "all" {
 			// https://tools.ietf.org/html/rfc7208#section-5.1
 			trace("%v matched all", result)
 			return result, errMatchedAll
-		} else if strings.HasPrefix(field, "include:") {
+		} else if strings.HasPrefix(lfield, "include:") {
 			if ok, res, err := r.includeField(result, field); ok {
 				trace("include ok, %v %v", res, err)
 				return res, err
 			}
-		} else if strings.HasPrefix(field, "a") {
+		} else if aField.MatchString(lfield) {
 			if ok, res, err := r.aField(result, field, domain); ok {
 				trace("a ok, %v %v", res, err)
 				return res, err
 			}
-		} else if strings.HasPrefix(field, "mx") {
+		} else if mxField.MatchString(lfield) {
 			if ok, res, err := r.mxField(result, field, domain); ok {
 				trace("mx ok, %v %v", res, err)
 				return res, err
 			}
-		} else if strings.HasPrefix(field, "ip4:") || strings.HasPrefix(field, "ip6:") {
+		} else if strings.HasPrefix(lfield, "ip4:") || strings.HasPrefix(lfield, "ip6:") {
 			if ok, res, err := r.ipField(result, field); ok {
 				trace("ip ok, %v %v", res, err)
 				return res, err
 			}
-		} else if strings.HasPrefix(field, "ptr") {
+		} else if ptrField.MatchString(lfield) {
 			if ok, res, err := r.ptrField(result, field, domain); ok {
 				trace("ptr ok, %v %v", res, err)
 				return res, err
 			}
-		} else if strings.HasPrefix(field, "exists") {
+		} else if strings.HasPrefix(lfield, "exists") {
 			trace("exists, neutral / not supported")
 			return Neutral, errExistsNotSupported
-		} else if strings.HasPrefix(field, "exp=") {
+		} else if strings.HasPrefix(lfield, "exp=") {
 			trace("exp= not used, skipping")
 			continue
-		} else if strings.HasPrefix(field, "redirect=") {
+		} else if strings.HasPrefix(lfield, "redirect=") {
 			trace("redirect, %q", field)
 			// https://tools.ietf.org/html/rfc7208#section-6.1
 			result, err := r.Check(field[len("redirect="):])
@@ -278,13 +289,16 @@ func getDNSRecord(domain string) (string, error) {
 	}
 
 	for _, txt := range txts {
-		if strings.HasPrefix(txt, "v=spf1 ") {
+		// The version check should be case-insensitive (it's a
+		// case-insensitive constant in the standard).
+		// https://tools.ietf.org/html/rfc7208#section-12
+		if strings.HasPrefix(strings.ToLower(txt), "v=spf1 ") {
 			return txt, nil
 		}
 
 		// An empty record is explicitly allowed:
 		// https://tools.ietf.org/html/rfc7208#section-4.5
-		if txt == "v=spf1" {
+		if strings.ToLower(txt) == "v=spf1" {
 			return txt, nil
 		}
 	}
@@ -390,8 +404,8 @@ func ipMatch(ip, tomatch net.IP, mask int) (bool, error) {
 	}
 }
 
-var aRegexp = regexp.MustCompile("a(:([^/]+))?(/(.+))?")
-var mxRegexp = regexp.MustCompile("mx(:([^/]+))?(/(.+))?")
+var aRegexp = regexp.MustCompile("[aA](:([^/]+))?(/(.+))?")
+var mxRegexp = regexp.MustCompile("[mM][xX](:([^/]+))?(/(.+))?")
 
 func domainAndMask(re *regexp.Regexp, field, domain string) (string, int, error) {
 	var err error
