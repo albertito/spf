@@ -109,13 +109,39 @@ var (
 // to determine if `ip` is permitted to send mail for it.
 // Reference: https://tools.ietf.org/html/rfc7208#section-4
 func CheckHost(ip net.IP, domain string) (Result, error) {
-	r := &resolution{ip, 0, nil}
+	r := &resolution{ip, 0, "", nil}
 	return r.Check(domain)
+}
+
+// CheckHostWithSender fetches SPF records for `domain`, parses them, and
+// evaluates them to determine if `ip` is permitted to send mail for it.
+// The sender is used in macro expansion.
+// Reference: https://tools.ietf.org/html/rfc7208#section-4
+func CheckHostWithSender(ip net.IP, helo, sender string) (Result, error) {
+	_, domain := split(sender)
+	if domain == "" {
+		domain = helo
+	}
+
+	r := &resolution{ip, 0, sender, nil}
+	return r.Check(domain)
+}
+
+// split an user@domain address into user and domain.
+func split(addr string) (string, string) {
+	ps := strings.SplitN(addr, "@", 2)
+	if len(ps) != 2 {
+		return addr, ""
+	}
+
+	return ps[0], ps[1]
 }
 
 type resolution struct {
 	ip    net.IP
 	count uint
+
+	sender string
 
 	// Result of doing a reverse lookup for ip (so we only do it once).
 	ipNames []string
