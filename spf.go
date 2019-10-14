@@ -370,7 +370,7 @@ func (r *resolution) ptrField(res Result, field, domain string) (bool, Result, e
 
 	if r.ipNames == nil {
 		r.count++
-		n, err := lookupAddr(r.ip.String())
+		ns, err := lookupAddr(r.ip.String())
 		if err != nil {
 			// https://tools.ietf.org/html/rfc7208#section-5
 			if isTemporary(err) {
@@ -378,10 +378,16 @@ func (r *resolution) ptrField(res Result, field, domain string) (bool, Result, e
 			}
 			return false, "", err
 		}
-		r.ipNames = n
+		for _, n := range ns {
+			// Append the lower-case variants so we do a case-insensitive
+			// lookup below.
+			r.ipNames = append(r.ipNames, strings.ToLower(n))
+		}
 	}
 
+	ptrDomain = strings.ToLower(ptrDomain)
 	for _, n := range r.ipNames {
+		trace("ptr evaluating %q in %q", n, ptrDomain)
 		if strings.HasSuffix(n, ptrDomain+".") {
 			return true, res, errMatchedPTR
 		}
