@@ -137,8 +137,6 @@ func TestNotSupported(t *testing.T) {
 		err error
 	}{
 		{"v=spf1 exists:blah -all", errExistsNotSupported},
-		{"v=spf1 a:%{o} -all", errMacrosNotSupported},
-		{"v=spf1 redirect=_spf.%{d}", errMacrosNotSupported},
 	}
 
 	for _, c := range cases {
