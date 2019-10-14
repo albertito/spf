@@ -60,6 +60,7 @@ func TestBasic(t *testing.T) {
 		{"v=spf1 ptr:lalala -all", Pass, errMatchedPTR},
 		{"v=spf1 ptr:doesnotexist -all", Fail, errMatchedAll},
 		{"v=spf1 blah", PermError, errUnknownField},
+		{"v=spf1 exists:d1111 -all", Pass, errMatchedExists},
 	}
 
 	dns.ip["d1111"] = []net.IP{ip1111}
@@ -126,24 +127,6 @@ func TestIPv6(t *testing.T) {
 		}
 		if err != c.err {
 			t.Errorf("%q: expected error [%v], got [%v]", c.txt, c.err, err)
-		}
-	}
-}
-
-func TestNotSupported(t *testing.T) {
-	trace = t.Logf
-	cases := []struct {
-		txt string
-		err error
-	}{
-		{"v=spf1 exists:blah -all", errExistsNotSupported},
-	}
-
-	for _, c := range cases {
-		dns.txt["domain"] = []string{c.txt}
-		res, err := CheckHost(ip1111, "domain")
-		if res != Neutral || err != c.err {
-			t.Errorf("%q: expected neutral/%q, got %v/%q", c.txt, c.err, res, err)
 		}
 	}
 }

@@ -16,14 +16,9 @@
 //   ip4
 //   ip6
 //   redirect
+//   exists
 //   exp (ignored)
 //   Macros
-//
-// Not supported (return Neutral if used):
-//   exists
-//
-// This is intentional and there are no plans to add them for now, as they are
-// very rare, convoluted and not worth the additional complexity.
 //
 // References:
 //   https://tools.ietf.org/html/rfc7208
@@ -92,19 +87,20 @@ var qualToResult = map[byte]Result{
 
 var (
 	errLookupLimitReached = fmt.Errorf("lookup limit reached")
-	errExistsNotSupported = fmt.Errorf("'exists' not supported")
 	errUnknownField       = fmt.Errorf("unknown field")
 	errInvalidIP          = fmt.Errorf("invalid ipX value")
 	errInvalidMask        = fmt.Errorf("invalid mask")
 	errInvalidMacro       = fmt.Errorf("invalid macro")
+	errInvalidDomain      = fmt.Errorf("invalid domain")
 	errNoResult           = fmt.Errorf("lookup yielded no result")
 	errMultipleRecords    = fmt.Errorf("multiple matching DNS records")
 
-	errMatchedAll = fmt.Errorf("matched 'all'")
-	errMatchedA   = fmt.Errorf("matched 'a'")
-	errMatchedIP  = fmt.Errorf("matched 'ip'")
-	errMatchedMX  = fmt.Errorf("matched 'mx'")
-	errMatchedPTR = fmt.Errorf("matched 'ptr'")
+	errMatchedAll    = fmt.Errorf("matched 'all'")
+	errMatchedA      = fmt.Errorf("matched 'a'")
+	errMatchedIP     = fmt.Errorf("matched 'ip'")
+	errMatchedMX     = fmt.Errorf("matched 'mx'")
+	errMatchedPTR    = fmt.Errorf("matched 'ptr'")
+	errMatchedExists = fmt.Errorf("matched 'exists'")
 )
 
 // CheckHost fetches SPF records for `domain`, parses them, and evaluates them
@@ -252,9 +248,11 @@ func (r *resolution) Check(domain string) (Result, error) {
 				trace("ptr ok, %v %v", res, err)
 				return res, err
 			}
-		} else if strings.HasPrefix(lfield, "exists") {
-			trace("exists, neutral / not supported")
-			return Neutral, errExistsNotSupported
+		} else if strings.HasPrefix(lfield, "exists:") {
+			if ok, res, err := r.existsField(result, field, domain); ok {
+				trace("exists ok, %v %v", res, err)
+				return res, err
+			}
 		} else if strings.HasPrefix(lfield, "exp=") {
 			trace("exp= not used, skipping")
 			continue
@@ -375,6 +373,39 @@ func (r *resolution) ptrField(res Result, field, domain string) (bool, Result, e
 		}
 	}
 
+	return false, "", nil
+}
+
+// existsField processes a "exists" field.
+// https://tools.ietf.org/html/rfc7208#section-5.7
+func (r *resolution) existsField(res Result, field, domain string) (bool, Result, error) {
+	// The field is in the form "exists:<domain>".
+	eDomain := field[7:]
+	eDomain, err := r.expandMacros(eDomain, domain)
+	if err != nil {
+		return true, PermError, errInvalidMacro
+	}
+
+	if eDomain == "" {
+		return true, PermError, errInvalidDomain
+	}
+
+	r.count++
+	ips, err := lookupIP(eDomain)
+	if err != nil {
+		// https://tools.ietf.org/html/rfc7208#section-5
+		if isTemporary(err) {
+			return true, TempError, err
+		}
+		return false, "", err
+	}
+
+	// Exists only counts if there are IPv4 matches.
+	for _, ip := range ips {
+		if ip.To4() != nil {
+			return true, res, errMatchedExists
+		}
+	}
 	return false, "", nil
 }
 
@@ -579,7 +610,7 @@ func (r *resolution) expandMacros(s, domain string) (string, error) {
 	// doesn't, prevent them from sneaking through.
 	if strings.Contains(s, "/") {
 		trace("macro contains /")
-		return "", errInvalidMacro
+		return "", errInvalidDomain
 	}
 
 	// Bypass the complex logic if there are no macros present.
