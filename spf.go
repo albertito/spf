@@ -94,6 +94,7 @@ var (
 	errInvalidDomain      = fmt.Errorf("invalid domain")
 	errNoResult           = fmt.Errorf("lookup yielded no result")
 	errMultipleRecords    = fmt.Errorf("multiple matching DNS records")
+	errTooManyMXRecords   = fmt.Errorf("too many MX records")
 
 	errMatchedAll    = fmt.Errorf("matched 'all'")
 	errMatchedA      = fmt.Errorf("matched 'a'")
@@ -553,6 +554,13 @@ func (r *resolution) mxField(res Result, field, domain string) (bool, Result, er
 		}
 		return false, "", err
 	}
+
+	// There's an explicit maximum of 10 MX records per match.
+	// https://tools.ietf.org/html/rfc7208#section-4.6.4
+	if len(mxs) > 10 {
+		return true, PermError, errTooManyMXRecords
+	}
+
 	mxips := []net.IP{}
 	for _, mx := range mxs {
 		r.count++
