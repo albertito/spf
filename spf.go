@@ -369,6 +369,7 @@ func (r *resolution) ptrField(res Result, field, domain string) (bool, Result, e
 	}
 
 	if r.ipNames == nil {
+		r.ipNames = []string{}
 		r.count++
 		ns, err := lookupAddr(r.ip.String())
 		if err != nil {
@@ -379,15 +380,30 @@ func (r *resolution) ptrField(res Result, field, domain string) (bool, Result, e
 			return false, "", err
 		}
 		for _, n := range ns {
-			// Append the lower-case variants so we do a case-insensitive
-			// lookup below.
-			r.ipNames = append(r.ipNames, strings.ToLower(n))
+			// Validate the record by doing a forward resolution: it has to
+			// have some A/AAAA.
+			// https://tools.ietf.org/html/rfc7208#section-5.5
+			if r.count > 10 {
+				return false, "", errLookupLimitReached
+			}
+			r.count++
+			addrs, err := lookupIP(n)
+			if err != nil {
+				// RFC explicitly says to skip domains which error here.
+				continue
+			}
+			trace("ptr forward resolution %q -> %q", n, addrs)
+			if len(addrs) > 0 {
+				// Append the lower-case variants so we do a case-insensitive
+				// lookup below.
+				r.ipNames = append(r.ipNames, strings.ToLower(n))
+			}
 		}
 	}
 
+	trace("ptr evaluating %q in %q", ptrDomain, r.ipNames)
 	ptrDomain = strings.ToLower(ptrDomain)
 	for _, n := range r.ipNames {
-		trace("ptr evaluating %q in %q", n, ptrDomain)
 		if strings.HasSuffix(n, ptrDomain+".") {
 			return true, res, errMatchedPTR
 		}

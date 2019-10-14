@@ -66,7 +66,9 @@ func TestBasic(t *testing.T) {
 	dns.ip["d1111"] = []net.IP{ip1111}
 	dns.ip["d1110"] = []net.IP{ip1110}
 	dns.mx["d1110"] = []*net.MX{{"d1110", 5}, {"nothing", 10}}
-	dns.addr["1.1.1.1"] = []string{"lalala.", "domain.", "d1111."}
+	dns.addr["1.1.1.1"] = []string{"lalala.", "xx.domain.", "d1111."}
+	dns.ip["lalala"] = []net.IP{ip1111}
+	dns.ip["xx.domain"] = []net.IP{ip1111}
 
 	for _, c := range cases {
 		dns.txt["domain"] = []string{c.txt}
@@ -109,12 +111,15 @@ func TestIPv6(t *testing.T) {
 		{"v=spf1 ptr -all", Pass, errMatchedPTR},
 		{"v=spf1 ptr:d6666 -all", Pass, errMatchedPTR},
 		{"v=spf1 ptr:sonlas6 -all", Pass, errMatchedPTR},
+		{"v=spf1 ptr:sonlas7 -all", Fail, errMatchedAll},
 	}
 
 	dns.ip["d6666"] = []net.IP{ip6666}
 	dns.ip["d6660"] = []net.IP{ip6660}
 	dns.mx["d6660"] = []*net.MX{{"d6660", 5}, {"nothing", 10}}
 	dns.addr["2001:db8::68"] = []string{"sonlas6.", "domain.", "d6666."}
+	dns.ip["domain"] = []net.IP{ip1111}
+	dns.ip["sonlas6"] = []net.IP{ip6666}
 
 	for _, c := range cases {
 		dns.txt["domain"] = []string{c.txt}
