@@ -178,7 +178,7 @@ func (r *resolution) Check(domain string) (Result, error) {
 		return None, nil
 	}
 
-	fields := strings.Fields(txt)
+	fields := strings.Split(txt, " ")
 
 	// redirects must be handled after the rest; instead of having two loops,
 	// we just move them to the end.
@@ -193,6 +193,10 @@ func (r *resolution) Check(domain string) (Result, error) {
 	fields = append(newfields, redirects...)
 
 	for _, field := range fields {
+		if field == "" {
+			continue
+		}
+
 		// The version check should be case-insensitive (it's a
 		// case-insensitive constant in the standard).
 		// https://tools.ietf.org/html/rfc7208#section-12
