@@ -190,6 +190,11 @@ func (r *resolution) Check(domain string) (Result, error) {
 			newfields = append(newfields, field)
 		}
 	}
+	if len(redirects) > 1 {
+		// At most a single redirect is allowed.
+		// https://tools.ietf.org/html/rfc7208#section-6
+		return PermError, errInvalidDomain
+	}
 	fields = append(newfields, redirects...)
 
 	for _, field := range fields {
