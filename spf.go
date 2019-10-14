@@ -106,6 +106,9 @@ var (
 
 // CheckHost fetches SPF records for `domain`, parses them, and evaluates them
 // to determine if `ip` is permitted to send mail for it.
+// Because it doesn't receive enough information to handle macros well, its
+// usage is not recommended, but remains supported for backwards
+// compatibility.
 // Reference: https://tools.ietf.org/html/rfc7208#section-4
 func CheckHost(ip net.IP, domain string) (Result, error) {
 	trace("check host %q %q", ip, domain)
@@ -113,9 +116,9 @@ func CheckHost(ip net.IP, domain string) (Result, error) {
 	return r.Check(domain)
 }
 
-// CheckHostWithSender fetches SPF records for `domain`, parses them, and
-// evaluates them to determine if `ip` is permitted to send mail for it.
-// The sender is used in macro expansion.
+// CheckHostWithSender fetches SPF records for `sender`'s domain, parses them,
+// and evaluates them to determine if `ip` is permitted to send mail for it.
+// The `helo` domain is used if the sender has no domain part.
 // Reference: https://tools.ietf.org/html/rfc7208#section-4
 func CheckHostWithSender(ip net.IP, helo, sender string) (Result, error) {
 	_, domain := split(sender)

@@ -14,12 +14,14 @@ It is used by the [chasquid](https://blitiri.com.ar/p/chasquid/) SMTP server.
 
 ## Example
 
-The API is quite simple: it has only one function to perform the SPF check,
-similar to the one suggested in the [RFC](https://tools.ietf.org/html/rfc7208).
+The API is quite simple: it has only one main function to perform the SPF
+check, similar to the one suggested in the
+[RFC](https://tools.ietf.org/html/rfc7208).
 
 ```go
-// Check if `ip` is authorized to send email for `domain`.
-result, err := spf.CheckHost(ip, domain)
+// Check if `sender` is authorized to send from the given `ip`. The `domain`
+// is used if the sender doesn't have one.
+result, err := spf.CheckHostWithSender(ip, domain, sender)
 if result == spf.Fail {
 	// Not authorized to use the domain.
 }
