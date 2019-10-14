@@ -1,0 +1,201 @@
+# This is the test suite used during development of the pyspf library.
+# It is a collection of ad hoc tests based on bug reports.  It is the
+# goal of the SPF test project to have an elegant and minimal test suite
+# that reflects RFC 4408.  However, this should help get things started
+# by serving as a example of what tests look like.  Also, any implementation
+# that flunks this, should flunk the minimal elegant suite as well.
+#
+# We extended the test attributes with 'receiver' and 'header' to test
+# our implementation of the Received-SPF header.  This cannot easily
+# be part of the RFC test suite because of wide latitude in formatting.
+#
+---
+comment: |
+  check basic exists with macros
+tests:
+  exists-pass:
+    helo: mail.example.net
+    host: 1.2.3.5
+    mailfrom: lyme.eater@example.co.uk
+    result: pass
+    receiver: receiver.com
+    header: >-
+      Pass (receiver.com: domain of example.co.uk designates 1.2.3.5 as
+      permitted sender) client-ip=1.2.3.5;
+      envelope-from="lyme.eater@example.co.uk"; helo=mail.example.net;
+      receiver=receiver.com; mechanism="exists:%{l}.%{d}.%{i}.spf.example.net";
+      identity=mailfrom
+  exists-fail:
+    helo: mail.example.net
+    host: 1.2.3.4
+    mailfrom: lyme.eater@example.co.uk
+    result: fail
+zonedata:
+  lyme.eater.example.co.uk.1.2.3.5.spf.example.net:
+  - A: 127.0.0.1
+  example.co.uk:
+  - SPF: v=spf1 mx/26 exists:%{l}.%{d}.%{i}.spf.example.net -all
+
+---
+comment: |
+  permerror detection
+tests:
+  incloop:
+    comment: |
+      include loop
+    helo: mail.example.com
+    host: 66.150.186.79
+    mailfrom: chuckvsr@examplea.com
+    result: permerror
+  badall:
+    helo: mail.example.com
+    host: 66.150.186.79
+    mailfrom: chuckvsr@examplec.com
+    result: permerror
+  baddomain:
+    helo: mail.example.com
+    host: 66.150.186.79
+    mailfrom: chuckvsr@exampled.com
+    result: permerror
+    receiver: receiver.com
+    header: >-
+      PermError (receiver.com: permanent error in processing
+      domain of exampled.com: Invalid domain found (use FQDN))
+      client-ip=66.150.186.79; envelope-from="chuckvsr@exampled.com";
+      helo=mail.example.com; receiver=receiver.com;
+      problem="examplea.com:8080"; identity=mailfrom
+    skip: Not worth the complexity of erroring on this.
+  tworecs:
+    helo: mail.example.com
+    host: 66.150.186.79
+    mailfrom: chuckvsr@examplef.com
+    result: permerror
+    receiver: receiver.com
+    header: >-
+      PermError (receiver.com: permanent error in processing domain of
+      examplef.com: Two or more type TXT spf records found.)
+      client-ip=66.150.186.79; envelope-from="chuckvsr@examplef.com";
+      helo=mail.example.com; receiver=receiver.com; identity=mailfrom
+  badip:
+    helo: mail.example.com
+    host: 66.150.186.79
+    mailfrom: chuckvsr@examplee.com
+    result: permerror
+zonedata:
+  examplea.com:
+  - SPF: v=spf1 a mx include:b.com
+  exampleb.com:
+  - SPF: v=spf1 a mx include:a.com
+  examplec.com:
+  - SPF: v=spf1 -all:foobar
+  exampled.com:
+  - SPF: v=spf1 a:examplea.com:8080
+  examplee.com:
+  - SPF: v=spf1 ip4:1.2.3.4:8080
+  examplef.com:
+  - SPF: v=spf1 -all
+  - SPF: v=spf1 +all
+
+---
+tests:
+  nospace1:
+    comment: |
+      test no space
+      test multi-line comment
+    helo: mail.example1.com
+    host: 1.2.3.4
+    mailfrom: foo@example2.com
+    result: none
+  empty:
+    comment: |
+      test empty
+    helo: mail1.example1.com
+    host: 1.2.3.4
+    mailfrom: foo@example1.com
+    result: neutral
+  nospace2:
+    helo: mail.example1.com
+    host: 1.2.3.4
+    mailfrom: foo@example3.com
+    result: pass
+zonedata:
+  example3.com:
+  - SPF: [ 'v=spf1','mx' ]
+  - SPF: [ 'v=spf1 ', 'mx' ]
+  - MX: [0, mail.example1.com]
+  example1.com:
+  - SPF: v=spf1
+  example2.com:
+  - SPF: v=spf1mx
+  mail.example1.com:
+  - A: 1.2.3.4
+
+---
+comment: |
+  corner cases
+tests:
+  emptyMX:
+    comment: |
+      test empty MX
+    helo: mail.example.com
+    host: 1.2.3.4
+    mailfrom: ""
+    result: neutral
+  localhost:
+    helo: mail.example.com
+    host: 127.0.0.1
+    mailfrom: root@example.com
+    result: fail
+  default-modifier:
+    comment: |
+      default modifier implemented in lax mode for compatibility
+    helo: mail.example.com
+    host: 1.2.3.4
+    mailfrom: root@e1.example.com
+    result: fail
+    strict: 0
+    skip: It's not clear this is problematic.
+  default-modifier-harsh:
+    comment: |
+      default modifier implemented in lax mode for compatibility
+    helo: mail.example.com
+    host: 1.2.3.4
+    mailfrom: root@e1.example.com
+    result: ambiguous
+    strict: 2
+    skip: It's not clear this is problematic.
+  cname-chain:
+    comment: |
+      pyspf was duplicating TXT (and other) records while following CNAME
+    helo: mail.example.com
+    host: 1.2.3.4
+    mailfrom: foo@e2.example.com
+    result: pass
+    skip: Test runner doesn't handle CNAMEs yet.
+  null-cname:
+    comment: |
+      pyspf was getting a type error for null CNAMEs
+      Thanks to Kazuhiro Ogura <kazuhiro.ogura@hde.co.jp>
+    helo: mail.example.com
+    host: 1.2.3.4
+    mailfrom: bar@e3.example.com
+    result: softfail
+zonedata:
+  mail.example.com:
+  - MX: [0, '']
+  - SPF: v=spf1 mx
+  example.com:
+  - SPF: v=spf1 -all
+  e1.example.com:
+  - SPF: v=spf1 default=-
+  e2.example.com:
+  - CNAME: c1.example.com.
+  c1.example.com:
+  - CNAME: c2.example.com.
+  c2.example.com:
+  - SPF: v=spf1 a a:c1.example.com -all
+  - A: 1.2.3.4
+  mx1.example.com:
+  - CNAME: ''
+  e3.example.com:
+  - SPF: v=spf1 a:mx1.example.com mx:mx1.example.com ~all

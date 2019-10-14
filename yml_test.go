@@ -300,3 +300,7 @@ func TestRFC4408(t *testing.T) {
 func TestRFC7208(t *testing.T) {
 	testRFC(t, "testdata/rfc7208-tests.yml")
 }
+
+func TestPySPF(t *testing.T) {
+	testRFC(t, "testdata/pyspf-tests.yml")
+}
