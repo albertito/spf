@@ -61,6 +61,7 @@ func TestBasic(t *testing.T) {
 		{"v=spf1 ptr:doesnotexist -all", Fail, errMatchedAll},
 		{"v=spf1 blah", PermError, errUnknownField},
 		{"v=spf1 exists:d1111 -all", Pass, errMatchedExists},
+		{"v=spf1 redirect=", PermError, errInvalidDomain},
 	}
 
 	dns.ip["d1111"] = []net.IP{ip1111}
@@ -307,6 +308,92 @@ func TestDNSPermanentErrors(t *testing.T) {
 		if res != c.res {
 			t.Errorf("%q: expected %v, got %v (%v)",
 				c.txt, c.res, res, err)
+		}
+	}
+}
+
+func TestMacros(t *testing.T) {
+	dns = NewDNS()
+	trace = t.Logf
+
+	// Most of the cases are covered by the standard test suite, so this is
+	// targeted at gaps in coverage.
+	cases := []struct {
+		txt string
+		res Result
+		err error
+	}{
+		{"v=spf1 ptr:%{fff} -all", PermError, errInvalidMacro},
+		{"v=spf1 mx:%{fff} -all", PermError, errInvalidMacro},
+		{"v=spf1 redirect=%{fff}", PermError, errInvalidMacro},
+		{"v=spf1 a:%{o0}", PermError, errInvalidMacro},
+		{"v=spf1 +a:sss-%{s}-sss", Pass, errMatchedA},
+		{"v=spf1 +a:ooo-%{o}-ooo", Pass, errMatchedA},
+		{"v=spf1 +a:OOO-%{O}-OOO", Pass, errMatchedA},
+		{"v=spf1 +a:ppp-%{p}-ppp", Pass, errMatchedA},
+		{"v=spf1 +a:vvv-%{v}-vvv", Pass, errMatchedA},
+		{"v=spf1 a:%{x}", PermError, errInvalidMacro},
+		{"v=spf1 +a:ooo-%{o7}-ooo", Pass, errMatchedA},
+	}
+
+	dns.ip["sss-user@domain-sss"] = []net.IP{ip6666}
+	dns.ip["ooo-domain-ooo"] = []net.IP{ip6666}
+	dns.ip["ppp-unknown-ppp"] = []net.IP{ip6666}
+	dns.ip["vvv-ip6-vvv"] = []net.IP{ip6666}
+
+	for _, c := range cases {
+		dns.txt["domain"] = []string{c.txt}
+		res, err := CheckHostWithSender(ip6666, "helo", "user@domain")
+		if (res == TempError || res == PermError) && (err == nil) {
+			t.Errorf("%q: expected error, got nil", c.txt)
+		}
+		if res != c.res {
+			t.Errorf("%q: expected %q, got %q", c.txt, c.res, res)
+		}
+		if err != c.err {
+			t.Errorf("%q: expected error [%v], got [%v]", c.txt, c.err, err)
+		}
+	}
+}
+
+func TestMacrosV4(t *testing.T) {
+	dns = NewDNS()
+	trace = t.Logf
+
+	// Like TestMacros above, but specifically for IPv4.
+	// It's easier to have a separate suite.
+	// While at it, test some of the reversals, for variety.
+	cases := []struct {
+		txt string
+		res Result
+		err error
+	}{
+		{"v=spf1 +a:sr-%{sr}-sr", Pass, errMatchedA},
+		{"v=spf1 +a:sra-%{sr.}-sra", Pass, errMatchedA},
+		{"v=spf1 +a:o7-%{o7}-o7", Pass, errMatchedA},
+		{"v=spf1 +a:o1-%{o1}-o1", Pass, errMatchedA},
+		{"v=spf1 +a:o1r-%{o1r}-o1r", Pass, errMatchedA},
+		{"v=spf1 +a:vvv-%{v}-vvv", Pass, errMatchedA},
+	}
+
+	dns.ip["sr-com.user@domain-sr"] = []net.IP{ip1111}
+	dns.ip["sra-com.user@domain-sra"] = []net.IP{ip1111}
+	dns.ip["o7-domain.com-o7"] = []net.IP{ip1111}
+	dns.ip["o1-com-o1"] = []net.IP{ip1111}
+	dns.ip["o1r-domain-o1r"] = []net.IP{ip1111}
+	dns.ip["vvv-in-addr-vvv"] = []net.IP{ip1111}
+
+	for _, c := range cases {
+		dns.txt["domain.com"] = []string{c.txt}
+		res, err := CheckHostWithSender(ip1111, "helo", "user@domain.com")
+		if (res == TempError || res == PermError) && (err == nil) {
+			t.Errorf("%q: expected error, got nil", c.txt)
+		}
+		if res != c.res {
+			t.Errorf("%q: expected %q, got %q", c.txt, c.res, res)
+		}
+		if err != c.err {
+			t.Errorf("%q: expected error [%v], got [%v]", c.txt, c.err, err)
 		}
 	}
 }
