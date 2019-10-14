@@ -359,6 +359,10 @@ func (r *resolution) ptrField(res Result, field, domain string) (bool, Result, e
 		return true, PermError, errInvalidMacro
 	}
 
+	if ptrDomain == "" {
+		return true, PermError, errInvalidDomain
+	}
+
 	if r.ipNames == nil {
 		r.count++
 		n, err := lookupAddr(r.ip.String())
@@ -597,6 +601,10 @@ func (r *resolution) redirectField(field, domain string) (Result, error) {
 	rDomain, err := r.expandMacros(rDomain, domain)
 	if err != nil {
 		return PermError, errInvalidMacro
+	}
+
+	if rDomain == "" {
+		return PermError, errInvalidDomain
 	}
 
 	// https://tools.ietf.org/html/rfc7208#section-6.1
