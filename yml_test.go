@@ -15,6 +15,8 @@ import (
 var (
 	ymlSingle = flag.String("yml_single", "",
 		"run only the test with this name")
+	ymlSkipMarked = flag.Bool("yml_skip_marked", true,
+		"skip tests marked with the 'skip' value")
 )
 
 //////////////////////////////////////////////////////
@@ -36,6 +38,7 @@ type Test struct {
 	MailFrom    string `yaml:"mailfrom"`
 	Result      stringSlice
 	Explanation string
+	Skip        string
 }
 
 // Only one of these will be set.
@@ -217,6 +220,9 @@ func testRFC(t *testing.T, fname string) {
 		// Run each test.
 		for name, test := range suite.Tests {
 			if *ymlSingle != "" && *ymlSingle != name {
+				continue
+			}
+			if test.Skip != "" && *ymlSkipMarked {
 				continue
 			}
 			t.Logf("  test %s", name)

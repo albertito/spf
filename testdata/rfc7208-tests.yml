@@ -89,6 +89,7 @@ tests:
     host: 1.2.3.4
     mailfrom: "foobar@hosed.example.com"
     result: permerror
+    skip: We don't enforce 7-bit ascii.
   non-ascii-mech:
     description: >-
       SPF policies are restricted to 7-bit ascii.
@@ -99,6 +100,7 @@ tests:
     host: 1.2.3.4
     mailfrom: "foobar@hosed2.example.com"
     result: permerror
+    skip: We don't enforce 7-bit ascii.
   non-ascii-result:
     description: >-
       SPF policies are restricted to 7-bit ascii.
@@ -128,6 +130,7 @@ tests:
     host: 192.0.2.3
     mailfrom: "foobar@ctrl.example.com"
     result: permerror
+    skip: We fail instead of permerror because we don't enforce the charset.
   two-spaces:
     description: >-
       ABNF for term separation is one or more spaces, not just one.
@@ -222,6 +225,7 @@ tests:
     host: 1.2.3.4
     mailfrom: foo@spftimeout.example.net
     result: fail
+    skip: We don't use SPF records, it's ok to temperror here.
   txttimeout:
     description: >-
       SPF record present, but TXT lookup times out.
@@ -397,6 +401,7 @@ tests:
     host: 1.2.3.4
     mailfrom: foo@t1.example.com
     result: permerror
+    skip: We don't catch errors after a match.
   modifier-charset-good:
     description: name = ALPHA *( ALPHA / DIGIT / "-" / "_" / "." )
     spec: 4.6.1/2
@@ -404,6 +409,7 @@ tests:
     host: 1.2.3.4
     mailfrom: foo@t2.example.com
     result: pass
+    skip: We don't enforce the domain charset.
   modifier-charset-bad1:
     description: >-
       '=' character immediately after the name and before any ":" or "/"
@@ -439,6 +445,7 @@ tests:
     host: 1.2.3.5
     mailfrom: foo@t6.example.com
     result: fail
+    skip: Not worth the complexity of erroring on this.
   default-result:
     description: Default result is neutral.
     spec: 4.7/1
@@ -454,6 +461,7 @@ tests:
     host: 1.2.3.4
     mailfrom: foo@t8.example.com
     result: permerror
+    skip: We don't catch errors after a match.
   invalid-domain:
     description: >-
       Domain-spec must end in macro-expand or valid toplabel.
@@ -462,6 +470,7 @@ tests:
     host: 1.2.3.4
     mailfrom: foo@t9.example.com
     result: permerror
+    skip: We don't enforce TLD structure.
   invalid-domain-empty-label:
     description: >-
       target-name that is a valid domain-spec per RFC 4408 and RFC 7208 but an
@@ -824,6 +833,7 @@ tests:
     host: 1.2.3.4
     mailfrom: foo@e9.example.com
     result: permerror
+    skip: We don't enforce domain charset.
   a-nxdomain:
     description: >-
       If no ips are returned, A mechanism does not match, even with /0.
@@ -898,6 +908,7 @@ tests:
     host: 1.2.3.5
     mailfrom: foo@e3.example.com
     result: permerror
+    skip: We don't enforce charset.
   a-numeric:
     description: >-
       toplabel may not be all numeric
@@ -909,6 +920,7 @@ tests:
     host: 1.2.3.4
     mailfrom: foo@e4.example.com
     result: permerror
+    skip: We don't enforce domain structure.
   a-numeric-toplabel:
     description: >-
       toplabel may not be all numeric
@@ -917,6 +929,7 @@ tests:
     host: 1.2.3.4
     mailfrom: foo@e5.example.com
     result: permerror
+    skip: We don't enforce TLD structure.
   a-dash-in-toplabel:
     description: >-
       toplabel may contain dashes
@@ -941,6 +954,7 @@ tests:
     host: 1.2.3.4
     mailfrom: foo@e12.example.com
     result: permerror
+    skip: We don't enforce TLD structure.
   a-only-toplabel:
     description: >-
       domain-spec may not consist of only a toplabel.
@@ -949,6 +963,7 @@ tests:
     host: 1.2.3.4
     mailfrom: foo@e5a.example.com
     result: permerror
+    skip: We don't enforce TLD structure.
   a-only-toplabel-trailing-dot:
     description: >-
       domain-spec may not consist of only a toplabel.
@@ -959,6 +974,7 @@ tests:
     host: 1.2.3.4
     mailfrom: foo@e5b.example.com
     result: permerror
+    skip: We don't enforce TLD structure.
   a-colon-domain:
     description: >-
       domain-spec may contain any visible char except %
@@ -967,6 +983,7 @@ tests:
     host: 1.2.3.4
     mailfrom: foo@e11.example.com
     result: pass
+    skip: Allowing / in domain names is not worth the complexity
   a-colon-domain-ip4mapped:
     description: >-
       domain-spec may contain any visible char except %
@@ -975,6 +992,7 @@ tests:
     host: ::FFFF:1.2.3.4
     mailfrom: foo@e11.example.com
     result: pass
+    skip: Allowing / in domain names is not worth the complexity
   a-empty-domain:
     description: >-
       domain-spec cannot be empty.
@@ -983,6 +1001,7 @@ tests:
     host: 1.2.3.4
     mailfrom: foo@e13.example.com
     result: permerror
+    skip: Not worth the complexity of erroring on this.
 zonedata:
   mail.example.com:
     - A: 1.2.3.4
@@ -1215,6 +1234,7 @@ tests:
     host: 1.2.3.4
     mailfrom: foo@e9.example.com
     result: permerror
+    skip: We don't enforce domain syntax.
   mx-nxdomain:
     description: >-
       If no ips are returned, MX mechanism does not match, even with /0.
@@ -1283,6 +1303,7 @@ tests:
     host: 1.2.3.5
     mailfrom: foo@e3.example.com
     result: permerror
+    skip: We don't enforce charset.
   mx-numeric-top-label:
     description: >-
       Top-label may not be all numeric
@@ -1291,6 +1312,7 @@ tests:
     host: 1.2.3.4
     mailfrom: foo@e5.example.com
     result: permerror
+    skip: We don't validate top-level domains.
   mx-colon-domain:
     description: >-
       Domain-spec may contain any visible char except %
@@ -1299,6 +1321,7 @@ tests:
     host: 1.2.3.4
     mailfrom: foo@e11.example.com
     result: pass
+    skip: Allowing / in domain names is not worth the complexity
   mx-colon-domain-ip4mapped:
     description: >-
       Domain-spec may contain any visible char except %
@@ -1307,6 +1330,7 @@ tests:
     host: ::FFFF:1.2.3.4
     mailfrom: foo@e11.example.com
     result: pass
+    skip: Allowing / in domain names is not worth the complexity
   mx-bad-toplab:
     description: >-
       Toplabel may not begin with -
@@ -1315,6 +1339,7 @@ tests:
     host: 1.2.3.4
     mailfrom: foo@e12.example.com
     result: permerror
+    skip: We don't enforce TLD structure.
   mx-empty:
     description: >-
       test null MX
@@ -1343,6 +1368,7 @@ tests:
     host: 1.2.3.4
     mailfrom: foo@e13.example.com
     result: permerror
+    skip: Not worth the complexity of erroring on this.
 zonedata:
   mail.example.com:
     - A: 1.2.3.4
@@ -1518,6 +1544,7 @@ tests:
     host: 1.2.3.4
     mailfrom: foo@e4.example.com
     result: permerror
+    skip: It's not clear this is problematic.
   bare-ip4:
     description: >-
       IP4              = "ip4"      ":" ip4-network   [ ip4-cidr-length ]
@@ -1595,6 +1622,7 @@ tests:
     host: 1.2.3.4
     mailfrom: foo@e1.example.com
     result: permerror
+    skip: There's an early match.
   cidr6-0-ip4:
     description: >-
       IP4 connections do not match ip6.
@@ -1728,6 +1756,7 @@ tests:
     host: 1.2.3.4
     mailfrom: foo@e17.example.com
     result: permerror
+    skip: We don't enforce charset within the redirect.
   include-ignores-exp:
     description: >-
       when executing "include", exp= from the target domain MUST NOT be used.
@@ -1838,6 +1867,7 @@ tests:
     host: 1.2.3.4
     mailfrom: foo@e12.example.com
     result: permerror
+    skip: We ignore exp, and is harmless.
   explanation-syntax-error:
     description: |
       Ignore exp if the explanation string has a syntax error.
@@ -1870,6 +1900,7 @@ tests:
     host: 1.2.3.4
     mailfrom: foo@e16.example.com
     result: permerror
+    skip: We don't enforce exp values.
   exp-twice:
     description: |
       exp= appears twice.
@@ -1882,6 +1913,7 @@ tests:
     host: 1.2.3.4
     mailfrom: foo@e14.example.com
     result: permerror
+    skip: We ignore exp, and is harmless.
   redirect-empty-domain:
     description: |
       redirect = "redirect" "=" domain-spec
@@ -1893,6 +1925,7 @@ tests:
     host: 1.2.3.4
     mailfrom: foo@e18.example.com
     result: permerror
+    skip: There's an early match.
   redirect-twice:
     description: |
       redirect= appears twice.
@@ -1915,6 +1948,7 @@ tests:
     host: 1.2.3.4
     mailfrom: foo@e9.example.com
     result: permerror
+    skip: There's an early match.
   default-modifier-obsolete:
     description: |
       Unknown modifiers do not modify the RFC SPF result.
@@ -1926,6 +1960,7 @@ tests:
     host: 1.2.3.4
     mailfrom: foo@e19.example.com
     result: neutral
+    skip: Not worth the complexity of erroring on this.
   default-modifier-obsolete2:
     description: |
       Unknown modifiers do not modify the RFC SPF result.
@@ -1937,6 +1972,7 @@ tests:
     host: 1.2.3.4
     mailfrom: foo@e20.example.com
     result: neutral
+    skip: Not worth the complexity of erroring on this.
   non-ascii-exp:
     description: >-
       SPF explanation text is restricted to 7-bit ascii.
@@ -2088,6 +2124,7 @@ tests:
     host: 192.168.218.40
     mailfrom: test@e2.example.com
     result: permerror
+    skip: We ignore exp, and is harmless.
   invalid-macro-char:
     spec: 7.1/9
     description: >-
@@ -2226,6 +2263,7 @@ tests:
     host: 192.168.218.42
     mailfrom: test@e7.example.com
     result: [pass, softfail]
+    skip: p macro is not supported
   upper-macro:
     spec: 7.1/26
     description: >-
@@ -2247,6 +2285,7 @@ tests:
     host: 192.168.218.40
     mailfrom: test@e9.example.com
     result: pass
+    skip: We don't have a HELO-explicit mode.
   invalid-hello-macro:
     spec: 7.1/2
     description: |-
@@ -2456,6 +2495,7 @@ tests:
     host: 1.2.3.4
     mailfrom: foo@e6.example.com
     result: pass
+    skip: This is a legitimate fail because we don't do caching.
   mech-over-limit:
     description: >-
       SPF implementations MUST limit the number of mechanisms and modifiers
@@ -2513,6 +2553,7 @@ tests:
     host: 1.2.3.4
     mailfrom: foo@e11.example.com
     result: permerror
+    skip: We don't limit this separately from the total 10 limit.
 zonedata:
   mail.example.com:
     - A: 1.2.3.4
