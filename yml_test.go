@@ -127,8 +127,6 @@ func (mx *MX) UnmarshalYAML(unmarshal func(interface{}) error) error {
 //
 
 func testRFC(t *testing.T, fname string) {
-
-	//data, err := ioutil.ReadFile(fname)
 	input, err := os.Open(fname)
 	if err != nil {
 		t.Fatal(err)
@@ -142,7 +140,6 @@ func testRFC(t *testing.T, fname string) {
 		if err == io.EOF {
 			break
 		}
-		//err = yaml.Unmarshal(data, suites)
 		if err != nil {
 			t.Fatal(err)
 		}
