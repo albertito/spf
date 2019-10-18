@@ -779,7 +779,7 @@ func (r *resolution) expandMacros(s, domain string) (string, error) {
 				if digits > len(split) {
 					digits = len(split)
 				}
-				split = split[len(split)-digits : len(split)]
+				split = split[len(split)-digits:]
 			}
 
 			// Join back, always with "."
