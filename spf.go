@@ -473,12 +473,12 @@ func (r *resolution) includeField(res Result, field, domain string) (bool, Resul
 	return false, "", fmt.Errorf("This should never be reached")
 }
 
-type DualMasks struct {
+type dualMasks struct {
 	v4 int
 	v6 int
 }
 
-func ipMatch(ip, tomatch net.IP, masks DualMasks) (bool, error) {
+func ipMatch(ip, tomatch net.IP, masks dualMasks) (bool, error) {
 	mask := -1
 	if tomatch.To4() != nil && masks.v4 >= 0 {
 		mask = masks.v4
@@ -504,8 +504,8 @@ func ipMatch(ip, tomatch net.IP, masks DualMasks) (bool, error) {
 var aRegexp = regexp.MustCompile(`^[aA](:([^/]+))?(/(\w+))?(//(\w+))?$`)
 var mxRegexp = regexp.MustCompile(`^[mM][xX](:([^/]+))?(/(\w+))?(//(\w+))?$`)
 
-func domainAndMask(re *regexp.Regexp, field, domain string) (string, DualMasks, error) {
-	masks := DualMasks{-1, -1}
+func domainAndMask(re *regexp.Regexp, field, domain string) (string, dualMasks, error) {
+	masks := dualMasks{-1, -1}
 	groups := re.FindStringSubmatch(field)
 	if groups != nil {
 		if groups[2] != "" {
