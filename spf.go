@@ -493,12 +493,9 @@ func ipMatch(ip, tomatch net.IP, masks dualMasks) (bool, error) {
 			return false, errInvalidMask
 		}
 		return ipnet.Contains(ip), nil
-	} else {
-		if ip.Equal(tomatch) {
-			return true, nil
-		}
-		return false, nil
 	}
+
+	return ip.Equal(tomatch), nil
 }
 
 var aRegexp = regexp.MustCompile(`^[aA](:([^/]+))?(/(\w+))?(//(\w+))?$`)
