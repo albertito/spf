@@ -204,7 +204,7 @@ func testRFC(t *testing.T, fname string) {
 			// To try to minimize changes to the suite, we work around this by
 			// only adding records from SPF if there is no TXT already.
 			// We need to do this in a separate step because order of
-			// appeareance is not guaranteed.
+			// appearance is not guaranteed.
 			if len(dns.txt[domain]) == 0 {
 				for _, record := range records {
 					if len(record.SPF) > 0 {

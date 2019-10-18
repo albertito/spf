@@ -622,7 +622,7 @@ func (r *resolution) mxField(res Result, field, domain string) (bool, Result, er
 	return false, "", nil
 }
 
-// redirectField proces a "redirect=" field.
+// redirectField processes a "redirect=" field.
 func (r *resolution) redirectField(field, domain string) (Result, error) {
 	rDomain := field[len("redirect="):]
 	rDomain, err := r.expandMacros(rDomain, domain)
