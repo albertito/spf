@@ -36,9 +36,6 @@ details.
 The API should be considered stable. Major version changes will be announced
 to the mailing list (details below).
 
-Branch v1 will only have backwards-compatible changes made to it.
-There are no plans for v2 at the moment.
-
 
 ## Contact
 
