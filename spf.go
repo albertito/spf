@@ -92,7 +92,7 @@ var (
 	errInvalidMask        = fmt.Errorf("invalid mask")
 	errInvalidMacro       = fmt.Errorf("invalid macro")
 	errInvalidDomain      = fmt.Errorf("invalid domain")
-	errNoResult           = fmt.Errorf("lookup yielded no result")
+	errNoResult           = fmt.Errorf("no DNS record found")
 	errMultipleRecords    = fmt.Errorf("multiple matching DNS records")
 	errTooManyMXRecords   = fmt.Errorf("too many MX records")
 
@@ -177,8 +177,8 @@ func (r *resolution) Check(domain string) (Result, error) {
 
 	if txt == "" {
 		// No record => None.
-		// https://tools.ietf.org/html/rfc7208#section-4.6
-		return None, nil
+		// https://tools.ietf.org/html/rfc7208#section-4.5
+		return None, errNoResult
 	}
 
 	fields := strings.Split(txt, " ")
@@ -467,7 +467,7 @@ func (r *resolution) includeField(res Result, field, domain string) (bool, Resul
 	case PermError:
 		return true, PermError, err
 	case None:
-		return true, PermError, errNoResult
+		return true, PermError, err
 	}
 
 	return false, "", fmt.Errorf("This should never be reached")

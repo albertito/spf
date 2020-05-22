@@ -20,8 +20,8 @@ func TestBasic(t *testing.T) {
 		res Result
 		err error
 	}{
-		{"", None, nil},
-		{"blah", None, nil},
+		{"", None, errNoResult},
+		{"blah", None, errNoResult},
 		{"v=spf1", Neutral, nil},
 		{"v=spf1 ", Neutral, nil},
 		{"v=spf1 -", PermError, errUnknownField},
@@ -204,7 +204,7 @@ func TestInvalidRedirect(t *testing.T) {
 	}
 
 	res, err = CheckHost(ip1111, "domain")
-	if res != PermError || err != nil {
+	if res != PermError || err != errNoResult {
 		t.Errorf("expected permerror, got %v (%v)", res, err)
 	}
 }
