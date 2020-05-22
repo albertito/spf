@@ -1,8 +1,7 @@
 # Configuration for https://travis-ci.org/
 
 language: go
-dist: trusty
-sudo: false
+dist: bionic
 
 go_import_path: blitiri.com.ar/go/spf
 
