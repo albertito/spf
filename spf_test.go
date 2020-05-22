@@ -66,7 +66,7 @@ func TestBasic(t *testing.T) {
 
 	dns.ip["d1111"] = []net.IP{ip1111}
 	dns.ip["d1110"] = []net.IP{ip1110}
-	dns.mx["d1110"] = []*net.MX{{"d1110", 5}, {"nothing", 10}}
+	dns.mx["d1110"] = []*net.MX{mx("d1110", 5), mx("nothing", 10)}
 	dns.addr["1.1.1.1"] = []string{"lalala.", "xx.domain.", "d1111."}
 	dns.ip["lalala"] = []net.IP{ip1111}
 	dns.ip["xx.domain"] = []net.IP{ip1111}
@@ -117,7 +117,7 @@ func TestIPv6(t *testing.T) {
 
 	dns.ip["d6666"] = []net.IP{ip6666}
 	dns.ip["d6660"] = []net.IP{ip6660}
-	dns.mx["d6660"] = []*net.MX{{"d6660", 5}, {"nothing", 10}}
+	dns.mx["d6660"] = []*net.MX{mx("d6660", 5), mx("nothing", 10)}
 	dns.addr["2001:db8::68"] = []string{"sonlas6.", "domain.", "d6666."}
 	dns.ip["domain"] = []net.IP{ip1111}
 	dns.ip["sonlas6"] = []net.IP{ip6666}
@@ -254,7 +254,7 @@ func TestDNSTemporaryErrors(t *testing.T) {
 	// Domain "tmperr" will fail resolution with a temporary error.
 	dns.errors["tmperr"] = dnsError
 	dns.errors["1.1.1.1"] = dnsError
-	dns.mx["tmpmx"] = []*net.MX{{"tmperr", 10}}
+	dns.mx["tmpmx"] = []*net.MX{mx("tmperr", 10)}
 	trace = t.Logf
 
 	cases := []struct {
@@ -288,7 +288,7 @@ func TestDNSPermanentErrors(t *testing.T) {
 	// Domain "tmperr" will fail resolution with a temporary error.
 	dns.errors["tmperr"] = dnsError
 	dns.errors["1.1.1.1"] = dnsError
-	dns.mx["tmpmx"] = []*net.MX{{"tmperr", 10}}
+	dns.mx["tmpmx"] = []*net.MX{mx("tmperr", 10)}
 	trace = t.Logf
 
 	cases := []struct {
@@ -396,4 +396,8 @@ func TestMacrosV4(t *testing.T) {
 			t.Errorf("%q: expected error [%v], got [%v]", c.txt, c.err, err)
 		}
 	}
+}
+
+func mx(host string, pref uint16) *net.MX {
+	return &net.MX{Host: host, Pref: pref}
 }

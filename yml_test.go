@@ -175,7 +175,7 @@ func testRFC(t *testing.T, fname string) {
 				}
 				if record.MX != nil {
 					dns.mx[domain] = append(dns.mx[domain],
-						&net.MX{record.MX.Host, record.MX.Prio})
+						mx(record.MX.Host, record.MX.Prio))
 				}
 				for _, s := range record.PTR {
 					// domain in this case is of the form:
