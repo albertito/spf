@@ -5,18 +5,19 @@
 // exchangers to check that incoming mail from a domain comes from a host
 // authorized by that domain's administrators [Wikipedia].
 //
-// This is a Go implementation of it, which is used by the chasquid SMTP
-// server (https://blitiri.com.ar/p/chasquid/).
+// This package is intended to be used by SMTP servers to implement SPF
+// validation.
 //
-// Supported mechanisms and modifiers:
+// All mechanisms and modifiers are supported:
 //   all
 //   include
 //   a
 //   mx
+//   ptr
 //   ip4
 //   ip6
-//   redirect
 //   exists
+//   redirect
 //   exp (ignored)
 //   Macros
 //
