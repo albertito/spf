@@ -286,8 +286,8 @@ func reverseDNS(t *testing.T, r string) net.IP {
 	return ip
 }
 
-func TestSimple(t *testing.T) {
-	testRFC(t, "testdata/simple-tests.yml")
+func TestOurs(t *testing.T) {
+	testRFC(t, "testdata/blitirispf-tests.yml")
 }
 
 func TestRFC4408(t *testing.T) {
