@@ -36,5 +36,49 @@ tests:
 zonedata:
   example.net:
     - SPF:  v=spf1 -all
-
-
+---
+description: Regexp edge cases for "a", "mx" and "ptr"
+tests:
+  ipv6-with-a:
+    description: |
+      Send from an ip6 address that has "a:" inside. If we incorrectly parse
+      the "ip6" as "a", this results in a permerror since the host doesn't
+      match.
+    mailfrom: "foobar@a1.net"
+    host: a::a
+    result: pass
+  bad-a-mask:
+    description: |
+      If we incorrectly parse the "ip6" as "a", this results in a permerror
+      due to an invalid mask.
+    mailfrom: "foobar@a2.net"
+    host: 2001:db8:ff0:100::2
+    result: softfail
+  exp-contains-mx:
+    description: exp= contains mx:, which should be ignored.
+    mailfrom: "foobar@expmx.net"
+    host: 1.2.3.4
+    result: softfail
+  exp-contains-ptr:
+    description: |
+      exp= contains ptr:, which should be ignored.
+      Note this test case involves unusual/invalid domains.
+    mailfrom: "foobar@expptr.net"
+    host: 1.2.3.4
+    result: softfail
+zonedata:
+  a1.net:
+    - SPF: v=spf1 ip6:a::a ~all
+  a2.net:
+    - SPF: v=spf1 ip6:1a0a:cccc::/29 ~all
+  expmx.net:
+    - SPF: v=spf1 exp=mx:mymx.com ~all
+    - MX: [10, mymx.com]
+  mymx.com:
+    - A: 1.2.3.4
+  expptr.net:
+    - SPF: v=spf1 exp=ptr:lalala.com ~all
+  4.3.2.1.in-addr.arpa:
+    - PTR: ptr:lalala.com.
+  ptr:lalala.com:
+    - A: 1.2.3.4

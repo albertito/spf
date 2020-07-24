@@ -151,9 +151,9 @@ type resolution struct {
 	ipNames []string
 }
 
-var aField = regexp.MustCompile(`^a$|a:|a/`)
-var mxField = regexp.MustCompile(`^mx$|mx:|mx/`)
-var ptrField = regexp.MustCompile(`^ptr$|ptr:`)
+var aField = regexp.MustCompile(`^(a$|a:|a/)`)
+var mxField = regexp.MustCompile(`^(mx$|mx:|mx/)`)
+var ptrField = regexp.MustCompile(`^(ptr$|ptr:)`)
 
 func (r *resolution) Check(domain string) (Result, error) {
 	r.count++
