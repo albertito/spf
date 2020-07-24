@@ -43,14 +43,15 @@ type Test struct {
 
 // Only one of these will be set.
 type Record struct {
-	A       stringSlice `yaml:"A"`
-	AAAA    stringSlice `yaml:"AAAA"`
-	MX      *MX         `yaml:"MX"`
-	SPF     stringSlice `yaml:"SPF"`
-	TXT     stringSlice `yaml:"TXT"`
-	PTR     stringSlice `yaml:"PTR"`
-	CNAME   stringSlice `yaml:"CNAME"`
-	TIMEOUT bool        `yaml:"TIMEOUT"`
+	A        stringSlice `yaml:"A"`
+	AAAA     stringSlice `yaml:"AAAA"`
+	MX       *MX         `yaml:"MX"`
+	SPF      stringSlice `yaml:"SPF"`
+	TXT      stringSlice `yaml:"TXT"`
+	PTR      stringSlice `yaml:"PTR"`
+	CNAME    stringSlice `yaml:"CNAME"`
+	TIMEOUT  bool        `yaml:"TIMEOUT"`
+	SERVFAIL bool        `yaml:"SERVFAIL"`
 }
 
 func (r Record) String() string {
@@ -77,6 +78,9 @@ func (r Record) String() string {
 	}
 	if r.TIMEOUT {
 		return "TIMEOUT"
+	}
+	if r.SERVFAIL {
+		return "SERVFAIL"
 	}
 	return fmt.Sprintf("<empty>")
 }
@@ -161,6 +165,14 @@ func testRFC(t *testing.T, fname string) {
 					err := &net.DNSError{
 						Err:       "test timeout error",
 						IsTimeout: true,
+					}
+					dns.errors[domain] = err
+				}
+				if record.SERVFAIL {
+					err := &net.DNSError{
+						Err:         "test servfail error",
+						IsTimeout:   false,
+						IsTemporary: false,
 					}
 					dns.errors[domain] = err
 				}
