@@ -82,3 +82,35 @@ zonedata:
     - PTR: ptr:lalala.com.
   ptr:lalala.com:
     - A: 1.2.3.4
+---
+description: Error on PTR forward resolution
+tests:
+  broken-ptr-forward:
+    description: |
+      Check that if during 'ptr' forward resolution we get an error, we skip
+      the domain (and consequently fail the check).
+    mailfrom: "foo@domain.net"
+    host: 1.2.3.4
+    result: softfail
+zonedata:
+  domain.net:
+    - SPF: v=spf1 ptr:lalala.com ~all
+  4.3.2.1.in-addr.arpa:
+    - PTR: lalala.com
+  lalala.com:
+    - TIMEOUT: true
+---
+description: Permanent error on 'exists' resolution
+tests:
+  exists-perm-error:
+    description: |
+      Check that if, during an 'exists' forward resolution we get an error, we
+      fail the check.
+    mailfrom: "foo@domain.net"
+    host: 1.2.3.4
+    result: softfail
+zonedata:
+  domain.net:
+    - SPF: v=spf1 exists:lalala.com ~all
+  lalala.com:
+    - SERVFAIL: true

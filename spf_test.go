@@ -401,3 +401,52 @@ func TestMacrosV4(t *testing.T) {
 func mx(host string, pref uint16) *net.MX {
 	return &net.MX{Host: host, Pref: pref}
 }
+
+func TestIPMatchHelper(t *testing.T) {
+	cases := []struct {
+		ip      net.IP
+		tomatch net.IP
+		masks   dualMasks
+		ok      bool
+		err     error
+	}{
+		{ip1111, ip1110, dualMasks{24, -1}, true, nil},
+		{ip1111, ip1111, dualMasks{-1, -1}, true, nil},
+		{ip1111, ip1110, dualMasks{-1, -1}, false, nil},
+		{ip1111, ip1110, dualMasks{32, -1}, false, nil},
+		{ip1111, ip1110, dualMasks{99, -1}, false, errInvalidMask},
+
+		{ip6666, ip6660, dualMasks{-1, 100}, true, nil},
+		{ip6666, ip6666, dualMasks{-1, -1}, true, nil},
+		{ip6666, ip6660, dualMasks{-1, -1}, false, nil},
+		{ip6666, ip6660, dualMasks{-1, 128}, false, nil},
+		{ip6666, ip6660, dualMasks{-1, 200}, false, errInvalidMask},
+	}
+	for _, c := range cases {
+		ok, err := ipMatch(c.ip, c.tomatch, c.masks)
+		if ok != c.ok || err != c.err {
+			t.Errorf("[%s %s/%v]: expected %v/%v, got %v/%v",
+				c.ip, c.tomatch, c.masks, c.ok, c.err, ok, err)
+		}
+	}
+}
+
+func TestInvalidMacro(t *testing.T) {
+	// Test that the macro expansion detects some invalid macros.
+	macros := []string{
+		"%{x}", "%{z}", "%{c}", "%{r}", "%{t}",
+	}
+	for _, macro := range macros {
+		r := resolution{
+			ip:     ip1111,
+			count:  0,
+			sender: "sender.com",
+		}
+
+		out, err := r.expandMacros(macro, "sender.com")
+		if out != "" || err != errInvalidMacro {
+			t.Errorf(`[%s]:expected ""/%v, got %q/%v`,
+				macro, errInvalidMacro, out, err)
+		}
+	}
+}
