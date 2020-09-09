@@ -110,7 +110,10 @@ var (
 // Because it doesn't receive enough information to handle macros well, its
 // usage is not recommended, but remains supported for backwards
 // compatibility.
+//
 // Reference: https://tools.ietf.org/html/rfc7208#section-4
+//
+// Deprecated: use CheckHostWithSender instead.
 func CheckHost(ip net.IP, domain string) (Result, error) {
 	trace("check host %q %q", ip, domain)
 	r := &resolution{ip, 0, "@" + domain, nil}
