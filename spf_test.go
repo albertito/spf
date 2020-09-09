@@ -450,3 +450,34 @@ func TestInvalidMacro(t *testing.T) {
 		}
 	}
 }
+
+func TestOverrideLookupLimit(t *testing.T) {
+	dns = NewDNS()
+	trace = t.Logf
+
+	dns.txt["domain1"] = []string{"v=spf1 include:domain2"}
+	dns.txt["domain2"] = []string{"v=spf1 include:domain3"}
+	dns.txt["domain3"] = []string{"v=spf1 include:domain4"}
+	dns.txt["domain4"] = []string{"v=spf1 +all"}
+
+	// The default of 10 should be enough.
+	res, err := CheckHostWithSender(ip1111, "helo", "user@domain1")
+	if res != Pass {
+		t.Errorf("expected pass, got %q / %q", res, err)
+	}
+
+	// Set the limit to 4, which is enough.
+	res, err = CheckHostWithSender(ip1111, "helo", "user@domain1",
+		OverrideLookupLimit(4))
+	if res != Pass {
+		t.Errorf("expected pass, got %q / %q", res, err)
+	}
+
+	// Set the limit to 3, which is not enough.
+	res, err = CheckHostWithSender(ip1111, "helo", "user@domain1",
+		OverrideLookupLimit(3))
+	if res != PermError || err != errLookupLimitReached {
+		t.Errorf("expected permerror/lookup limit reached, got %q / %q",
+			res, err)
+	}
+}

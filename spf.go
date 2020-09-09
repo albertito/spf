@@ -105,6 +105,15 @@ var (
 	errMatchedExists = fmt.Errorf("matched 'exists'")
 )
 
+// Default value for the maximum number of DNS lookups while resolving SPF.
+// RFC is quite clear 10 must be the maximum allowed.
+// https://tools.ietf.org/html/rfc7208#section-4.6.4
+const defaultMaxLookups = 10
+
+// Option type, for setting options. Users are expected to treat this as an
+// opaque type and not rely on the implementation, which is subject to change.
+type Option func(*resolution)
+
 // CheckHost fetches SPF records for `domain`, parses them, and evaluates them
 // to determine if `ip` is permitted to send mail for it.
 // Because it doesn't receive enough information to handle macros well, its
@@ -116,23 +125,52 @@ var (
 // Deprecated: use CheckHostWithSender instead.
 func CheckHost(ip net.IP, domain string) (Result, error) {
 	trace("check host %q %q", ip, domain)
-	r := &resolution{ip, 0, "@" + domain, nil}
+	r := &resolution{
+		ip:       ip,
+		maxcount: defaultMaxLookups,
+		sender:   "@" + domain,
+	}
 	return r.Check(domain)
 }
 
 // CheckHostWithSender fetches SPF records for `sender`'s domain, parses them,
 // and evaluates them to determine if `ip` is permitted to send mail for it.
 // The `helo` domain is used if the sender has no domain part.
+//
+// The `opts` optional parameter can be used to adjust some specific
+// behaviours, such as the maximum number of DNS lookups allowed.
+//
 // Reference: https://tools.ietf.org/html/rfc7208#section-4
-func CheckHostWithSender(ip net.IP, helo, sender string) (Result, error) {
+func CheckHostWithSender(ip net.IP, helo, sender string, opts ...Option) (Result, error) {
 	_, domain := split(sender)
 	if domain == "" {
 		domain = helo
 	}
 
 	trace("check host with sender %q %q %q (%q)", ip, helo, sender, domain)
-	r := &resolution{ip, 0, sender, nil}
+	r := &resolution{
+		ip:       ip,
+		maxcount: defaultMaxLookups,
+		sender:   sender,
+	}
+
+	for _, opt := range opts {
+		opt(r)
+	}
+
 	return r.Check(domain)
+}
+
+// OverrideLookupLimit overrides the maximum number of DNS lookups allowed
+// during SPF evaluation. Note that using this violates the RFC, which is
+// quite explicit that the maximum allowed MUST be 10 (the default). Please
+// use with care.
+//
+// This is EXPERIMENTAL for now, and the API is subject to change.
+func OverrideLookupLimit(limit uint) Option {
+	return func(r *resolution) {
+		r.maxcount = limit
+	}
 }
 
 // split an user@domain address into user and domain.
@@ -146,8 +184,9 @@ func split(addr string) (string, string) {
 }
 
 type resolution struct {
-	ip    net.IP
-	count uint
+	ip       net.IP
+	count    uint
+	maxcount uint
 
 	sender string
 
@@ -216,9 +255,9 @@ func (r *resolution) Check(domain string) (Result, error) {
 			continue
 		}
 
-		// Limit the number of resolutions to 10
+		// Limit the number of resolutions.
 		// https://tools.ietf.org/html/rfc7208#section-4.6.4
-		if r.count > 10 {
+		if r.count > r.maxcount {
 			trace("lookup limit reached")
 			return PermError, errLookupLimitReached
 		}
