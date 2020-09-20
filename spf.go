@@ -42,7 +42,8 @@ var (
 	lookupMX   = net.DefaultResolver.LookupMX
 	lookupIP   = net.DefaultResolver.LookupIP
 	lookupAddr = net.DefaultResolver.LookupAddr
-	trace      = func(f string, a ...interface{}) {}
+	nullTrace = func(f string, a ...interface{}) {}
+	trace     = nullTrace
 )
 
 // The Result of an SPF check. Note the values have meaning, we use them in

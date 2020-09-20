@@ -452,6 +452,22 @@ func TestInvalidMacro(t *testing.T) {
 	}
 }
 
+// Test that the null tracer doesn't cause unexpected issues, since all the
+// other tests override it.
+func TestNullTrace(t *testing.T) {
+	dns := NewDefaultResolver()
+	trace = nullTrace
+
+	dns.txt["domain1"] = []string{"v=spf1 include:domain2"}
+	dns.txt["domain2"] = []string{"v=spf1 +all"}
+
+	// Do a normal resolution, check it passes.
+	res, err := CheckHostWithSender(ip1111, "helo", "user@domain1")
+	if res != Pass {
+		t.Errorf("expected pass, got %q / %q", res, err)
+	}
+}
+
 func TestOverrideLookupLimit(t *testing.T) {
 	dns = NewDNS()
 	trace = t.Logf
