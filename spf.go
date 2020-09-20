@@ -38,10 +38,6 @@ import (
 
 // Functions that we can override for testing purposes.
 var (
-	lookupTXT  = net.DefaultResolver.LookupTXT
-	lookupMX   = net.DefaultResolver.LookupMX
-	lookupIP   = net.DefaultResolver.LookupIP
-	lookupAddr = net.DefaultResolver.LookupAddr
 	nullTrace = func(f string, a ...interface{}) {}
 	trace     = nullTrace
 )
@@ -132,6 +128,7 @@ func CheckHost(ip net.IP, domain string) (Result, error) {
 		maxcount: defaultMaxLookups,
 		sender:   "@" + domain,
 		ctx:      context.TODO(),
+		resolver: defaultResolver,
 	}
 	return r.Check(domain)
 }
@@ -156,6 +153,7 @@ func CheckHostWithSender(ip net.IP, helo, sender string, opts ...Option) (Result
 		maxcount: defaultMaxLookups,
 		sender:   sender,
 		ctx:      context.TODO(),
+		resolver: defaultResolver,
 	}
 
 	for _, opt := range opts {
@@ -188,6 +186,30 @@ func WithContext(ctx context.Context) Option {
 	}
 }
 
+// DNSResolver implements the methods we use to resolve DNS queries.
+// It is intentionally compatible with *net.Resolver.
+type DNSResolver interface {
+	LookupTXT(ctx context.Context, name string) ([]string, error)
+	LookupMX(ctx context.Context, name string) ([]*net.MX, error)
+	LookupIPAddr(ctx context.Context, host string) ([]net.IPAddr, error)
+	LookupAddr(ctx context.Context, addr string) (names []string, err error)
+}
+
+var defaultResolver DNSResolver = net.DefaultResolver
+
+// WithResolver sets the resolver to use for DNS lookups. It can be useful for
+// testing, and for customize DNS resolution specifically for this library.
+//
+// The default is to use net.DefaultResolver, which should be appropriate for
+// most users.
+//
+// This is EXPERIMENTAL for now, and the API is subject to change.
+func WithResolver(resolver DNSResolver) Option {
+	return func(r *resolution) {
+		r.resolver = resolver
+	}
+}
+
 // split an user@domain address into user and domain.
 func split(addr string) (string, string) {
 	ps := strings.SplitN(addr, "@", 2)
@@ -210,6 +232,9 @@ type resolution struct {
 
 	// Context for this resolution.
 	ctx context.Context
+
+	// DNS resolver to use.
+	resolver DNSResolver
 }
 
 var aField = regexp.MustCompile(`^(a$|a:|a/)`)
@@ -219,7 +244,7 @@ var ptrField = regexp.MustCompile(`^(ptr$|ptr:)`)
 func (r *resolution) Check(domain string) (Result, error) {
 	r.count++
 	trace("check %s %d", domain, r.count)
-	txt, err := getDNSRecord(r.ctx, domain)
+	txt, err := r.getDNSRecord(domain)
 	if err != nil {
 		if isTemporary(err) {
 			trace("dns temp error: %v", err)
@@ -351,8 +376,8 @@ func (r *resolution) Check(domain string) (Result, error) {
 // https://tools.ietf.org/html/rfc7208#section-3
 // https://tools.ietf.org/html/rfc7208#section-3.2
 // https://tools.ietf.org/html/rfc7208#section-4.5
-func getDNSRecord(ctx context.Context, domain string) (string, error) {
-	txts, err := lookupTXT(ctx, domain)
+func (r *resolution) getDNSRecord(domain string) (string, error) {
+	txts, err := r.resolver.LookupTXT(r.ctx, domain)
 	if err != nil {
 		return "", err
 	}
@@ -435,7 +460,7 @@ func (r *resolution) ptrField(res Result, field, domain string) (bool, Result, e
 	if r.ipNames == nil {
 		r.ipNames = []string{}
 		r.count++
-		ns, err := lookupAddr(r.ctx, r.ip.String())
+		ns, err := r.resolver.LookupAddr(r.ctx, r.ip.String())
 		if err != nil {
 			// https://tools.ietf.org/html/rfc7208#section-5
 			if isTemporary(err) {
@@ -451,7 +476,7 @@ func (r *resolution) ptrField(res Result, field, domain string) (bool, Result, e
 				return false, "", errLookupLimitReached
 			}
 			r.count++
-			addrs, err := lookupIP(r.ctx, "ip", n)
+			addrs, err := r.resolver.LookupIPAddr(r.ctx, n)
 			if err != nil {
 				// RFC explicitly says to skip domains which error here.
 				continue
@@ -491,7 +516,7 @@ func (r *resolution) existsField(res Result, field, domain string) (bool, Result
 	}
 
 	r.count++
-	ips, err := lookupIP(r.ctx, "ip", eDomain)
+	ips, err := r.resolver.LookupIPAddr(r.ctx, eDomain)
 	if err != nil {
 		// https://tools.ietf.org/html/rfc7208#section-5
 		if isTemporary(err) {
@@ -502,7 +527,7 @@ func (r *resolution) existsField(res Result, field, domain string) (bool, Result
 
 	// Exists only counts if there are IPv4 matches.
 	for _, ip := range ips {
-		if ip.To4() != nil {
+		if ip.IP.To4() != nil {
 			return true, res, errMatchedExists
 		}
 	}
@@ -608,7 +633,7 @@ func (r *resolution) aField(res Result, field, domain string) (bool, Result, err
 	}
 
 	r.count++
-	ips, err := lookupIP(r.ctx, "ip", aDomain)
+	ips, err := r.resolver.LookupIPAddr(r.ctx, aDomain)
 	if err != nil {
 		// https://tools.ietf.org/html/rfc7208#section-5
 		if isTemporary(err) {
@@ -617,9 +642,9 @@ func (r *resolution) aField(res Result, field, domain string) (bool, Result, err
 		return false, "", err
 	}
 	for _, ip := range ips {
-		ok, err := ipMatch(r.ip, ip, masks)
+		ok, err := ipMatch(r.ip, ip.IP, masks)
 		if ok {
-			trace("mx matched %v, %v, %v", r.ip, ip, masks)
+			trace("mx matched %v, %v, %v", r.ip, ip.IP, masks)
 			return true, res, errMatchedA
 		} else if err != nil {
 			return true, PermError, err
@@ -642,7 +667,7 @@ func (r *resolution) mxField(res Result, field, domain string) (bool, Result, er
 	}
 
 	r.count++
-	mxs, err := lookupMX(r.ctx, mxDomain)
+	mxs, err := r.resolver.LookupMX(r.ctx, mxDomain)
 	if err != nil {
 		// https://tools.ietf.org/html/rfc7208#section-5
 		if isTemporary(err) {
@@ -660,7 +685,7 @@ func (r *resolution) mxField(res Result, field, domain string) (bool, Result, er
 	mxips := []net.IP{}
 	for _, mx := range mxs {
 		r.count++
-		ips, err := lookupIP(r.ctx, "ip", mx.Host)
+		ips, err := r.resolver.LookupIPAddr(r.ctx, mx.Host)
 		if err != nil {
 			// https://tools.ietf.org/html/rfc7208#section-5
 			if isTemporary(err) {
@@ -668,7 +693,9 @@ func (r *resolution) mxField(res Result, field, domain string) (bool, Result, er
 			}
 			return false, "", err
 		}
-		mxips = append(mxips, ips...)
+		for _, ipaddr := range ips {
+			mxips = append(mxips, ipaddr.IP)
+		}
 	}
 	for _, ip := range mxips {
 		ok, err := ipMatch(r.ip, ip, masks)

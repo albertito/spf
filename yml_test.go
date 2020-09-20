@@ -156,7 +156,7 @@ func testRFC(t *testing.T, fname string) {
 		t.Logf("suite: %v", suite.Description)
 
 		// Set up zone for the suite based on zonedata.
-		dns = NewDNS()
+		dns := NewDefaultResolver()
 		for domain, records := range suite.ZoneData {
 			t.Logf("  domain %v", domain)
 			for _, record := range records {
