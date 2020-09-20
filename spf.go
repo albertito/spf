@@ -27,6 +27,7 @@
 package spf // import "blitiri.com.ar/go/spf"
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/url"
@@ -37,10 +38,10 @@ import (
 
 // Functions that we can override for testing purposes.
 var (
-	lookupTXT  = net.LookupTXT
-	lookupMX   = net.LookupMX
-	lookupIP   = net.LookupIP
-	lookupAddr = net.LookupAddr
+	lookupTXT  = net.DefaultResolver.LookupTXT
+	lookupMX   = net.DefaultResolver.LookupMX
+	lookupIP   = net.DefaultResolver.LookupIP
+	lookupAddr = net.DefaultResolver.LookupAddr
 	trace      = func(f string, a ...interface{}) {}
 )
 
@@ -129,6 +130,7 @@ func CheckHost(ip net.IP, domain string) (Result, error) {
 		ip:       ip,
 		maxcount: defaultMaxLookups,
 		sender:   "@" + domain,
+		ctx:      context.TODO(),
 	}
 	return r.Check(domain)
 }
@@ -152,6 +154,7 @@ func CheckHostWithSender(ip net.IP, helo, sender string, opts ...Option) (Result
 		ip:       ip,
 		maxcount: defaultMaxLookups,
 		sender:   sender,
+		ctx:      context.TODO(),
 	}
 
 	for _, opt := range opts {
@@ -170,6 +173,17 @@ func CheckHostWithSender(ip net.IP, helo, sender string, opts ...Option) (Result
 func OverrideLookupLimit(limit uint) Option {
 	return func(r *resolution) {
 		r.maxcount = limit
+	}
+}
+
+// WithContext is an option to set the context for this operation, which will
+// be passed along to the resolver functions and other external calls if
+// needed.
+//
+// This is EXPERIMENTAL for now, and the API is subject to change.
+func WithContext(ctx context.Context) Option {
+	return func(r *resolution) {
+		r.ctx = ctx
 	}
 }
 
@@ -192,6 +206,9 @@ type resolution struct {
 
 	// Result of doing a reverse lookup for ip (so we only do it once).
 	ipNames []string
+
+	// Context for this resolution.
+	ctx context.Context
 }
 
 var aField = regexp.MustCompile(`^(a$|a:|a/)`)
@@ -201,7 +218,7 @@ var ptrField = regexp.MustCompile(`^(ptr$|ptr:)`)
 func (r *resolution) Check(domain string) (Result, error) {
 	r.count++
 	trace("check %s %d", domain, r.count)
-	txt, err := getDNSRecord(domain)
+	txt, err := getDNSRecord(r.ctx, domain)
 	if err != nil {
 		if isTemporary(err) {
 			trace("dns temp error: %v", err)
@@ -333,8 +350,8 @@ func (r *resolution) Check(domain string) (Result, error) {
 // https://tools.ietf.org/html/rfc7208#section-3
 // https://tools.ietf.org/html/rfc7208#section-3.2
 // https://tools.ietf.org/html/rfc7208#section-4.5
-func getDNSRecord(domain string) (string, error) {
-	txts, err := lookupTXT(domain)
+func getDNSRecord(ctx context.Context, domain string) (string, error) {
+	txts, err := lookupTXT(ctx, domain)
 	if err != nil {
 		return "", err
 	}
@@ -417,7 +434,7 @@ func (r *resolution) ptrField(res Result, field, domain string) (bool, Result, e
 	if r.ipNames == nil {
 		r.ipNames = []string{}
 		r.count++
-		ns, err := lookupAddr(r.ip.String())
+		ns, err := lookupAddr(r.ctx, r.ip.String())
 		if err != nil {
 			// https://tools.ietf.org/html/rfc7208#section-5
 			if isTemporary(err) {
@@ -433,7 +450,7 @@ func (r *resolution) ptrField(res Result, field, domain string) (bool, Result, e
 				return false, "", errLookupLimitReached
 			}
 			r.count++
-			addrs, err := lookupIP(n)
+			addrs, err := lookupIP(r.ctx, "ip", n)
 			if err != nil {
 				// RFC explicitly says to skip domains which error here.
 				continue
@@ -473,7 +490,7 @@ func (r *resolution) existsField(res Result, field, domain string) (bool, Result
 	}
 
 	r.count++
-	ips, err := lookupIP(eDomain)
+	ips, err := lookupIP(r.ctx, "ip", eDomain)
 	if err != nil {
 		// https://tools.ietf.org/html/rfc7208#section-5
 		if isTemporary(err) {
@@ -590,7 +607,7 @@ func (r *resolution) aField(res Result, field, domain string) (bool, Result, err
 	}
 
 	r.count++
-	ips, err := lookupIP(aDomain)
+	ips, err := lookupIP(r.ctx, "ip", aDomain)
 	if err != nil {
 		// https://tools.ietf.org/html/rfc7208#section-5
 		if isTemporary(err) {
@@ -624,7 +641,7 @@ func (r *resolution) mxField(res Result, field, domain string) (bool, Result, er
 	}
 
 	r.count++
-	mxs, err := lookupMX(mxDomain)
+	mxs, err := lookupMX(r.ctx, mxDomain)
 	if err != nil {
 		// https://tools.ietf.org/html/rfc7208#section-5
 		if isTemporary(err) {
@@ -642,7 +659,7 @@ func (r *resolution) mxField(res Result, field, domain string) (bool, Result, er
 	mxips := []net.IP{}
 	for _, mx := range mxs {
 		r.count++
-		ips, err := lookupIP(mx.Host)
+		ips, err := lookupIP(r.ctx, "ip", mx.Host)
 		if err != nil {
 			// https://tools.ietf.org/html/rfc7208#section-5
 			if isTemporary(err) {

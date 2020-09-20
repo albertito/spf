@@ -1,7 +1,9 @@
 package spf
 
 import (
+	"context"
 	"flag"
+	"fmt"
 	"net"
 	"os"
 	"strings"
@@ -32,25 +34,40 @@ func NewDNS() DNS {
 // This way it's easier to get a clean slate between tests.
 var dns DNS
 
-func LookupTXT(domain string) (txts []string, err error) {
+func LookupTXT(ctx context.Context, domain string) (txts []string, err error) {
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
 	domain = strings.ToLower(domain)
 	domain = strings.TrimRight(domain, ".")
 	return dns.txt[domain], dns.errors[domain]
 }
 
-func LookupMX(domain string) (mxs []*net.MX, err error) {
+func LookupMX(ctx context.Context, domain string) (mxs []*net.MX, err error) {
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
 	domain = strings.ToLower(domain)
 	domain = strings.TrimRight(domain, ".")
 	return dns.mx[domain], dns.errors[domain]
 }
 
-func LookupIP(host string) (ips []net.IP, err error) {
+func LookupIP(ctx context.Context, net, host string) (ips []net.IP, err error) {
+	if net != "ip" {
+		panic(fmt.Sprintf("got net %q, expected ip", net))
+	}
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
 	host = strings.ToLower(host)
 	host = strings.TrimRight(host, ".")
 	return dns.ip[host], dns.errors[host]
 }
 
-func LookupAddr(host string) (addrs []string, err error) {
+func LookupAddr(ctx context.Context, host string) (addrs []string, err error) {
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
 	host = strings.ToLower(host)
 	host = strings.TrimRight(host, ".")
 	return dns.addr[host], dns.errors[host]

@@ -1,6 +1,7 @@
 package spf
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"testing"
@@ -480,4 +481,30 @@ func TestOverrideLookupLimit(t *testing.T) {
 		t.Errorf("expected permerror/lookup limit reached, got %q / %q",
 			res, err)
 	}
+}
+
+func TestWithContext(t *testing.T) {
+	dns = NewDNS()
+	trace = t.Logf
+
+	dns.txt["domain1"] = []string{"v=spf1 include:domain2"}
+	dns.txt["domain2"] = []string{"v=spf1 +all"}
+
+	// With a normal context.
+	ctx := context.Background()
+	res, err := CheckHostWithSender(ip1111, "helo", "user@domain1",
+		WithContext(ctx))
+	if res != Pass {
+		t.Errorf("expected pass, got %q / %q", res, err)
+	}
+
+	// With a cancelled context.
+	ctx, cancelF := context.WithCancel(context.Background())
+	cancelF()
+	res, err = CheckHostWithSender(ip1111, "helo", "user@domain1",
+		WithContext(ctx))
+	if res != None || err != context.Canceled {
+		t.Errorf("expected none/context cancelled, got %q / %q", res, err)
+	}
+
 }
