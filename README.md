@@ -2,7 +2,7 @@
 # blitiri.com.ar/go/spf
 
 [![GoDoc](https://godoc.org/blitiri.com.ar/go/spf?status.svg)](https://pkg.go.dev/blitiri.com.ar/go/spf)
-[![Build Status](https://travis-ci.org/albertito/spf.svg?branch=master)](https://travis-ci.org/albertito/spf)
+[![Build Status](https://gitlab.com/albertito/spf/badges/master/pipeline.svg)](https://gitlab.com/albertito/spf/-/commits/master)
 [![Go Report Card](https://goreportcard.com/badge/github.com/albertito/spf)](https://goreportcard.com/report/github.com/albertito/spf)
 [![Coverage Status](https://coveralls.io/repos/github/albertito/spf/badge.svg?branch=next)](https://coveralls.io/github/albertito/spf)
 
