@@ -118,6 +118,10 @@ type Option func(*resolution)
 // usage is not recommended, but remains supported for backwards
 // compatibility.
 //
+// The function returns a Result, which corresponds with the SPF result for
+// the check as per RFC, as well as an error for debugging purposes. Note that
+// the error may be non-nil even on successful checks.
+//
 // Reference: https://tools.ietf.org/html/rfc7208#section-4
 //
 // Deprecated: use CheckHostWithSender instead.
@@ -139,6 +143,10 @@ func CheckHost(ip net.IP, domain string) (Result, error) {
 //
 // The `opts` optional parameter can be used to adjust some specific
 // behaviours, such as the maximum number of DNS lookups allowed.
+//
+// The function returns a Result, which corresponds with the SPF result for
+// the check as per RFC, as well as an error for debugging purposes. Note that
+// the error may be non-nil even on successful checks.
 //
 // Reference: https://tools.ietf.org/html/rfc7208#section-4
 func CheckHostWithSender(ip net.IP, helo, sender string, opts ...Option) (Result, error) {
