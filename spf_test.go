@@ -403,31 +403,34 @@ func mx(host string, pref uint16) *net.MX {
 	return &net.MX{Host: host, Pref: pref}
 }
 
+func mkDM(v4, v6 int) dualMasks {
+	return dualMasks{net.CIDRMask(v4, 32), net.CIDRMask(v6, 128)}
+}
+
 func TestIPMatchHelper(t *testing.T) {
 	cases := []struct {
 		ip      net.IP
 		tomatch net.IP
 		masks   dualMasks
 		ok      bool
-		err     error
 	}{
-		{ip1111, ip1110, dualMasks{24, -1}, true, nil},
-		{ip1111, ip1111, dualMasks{-1, -1}, true, nil},
-		{ip1111, ip1110, dualMasks{-1, -1}, false, nil},
-		{ip1111, ip1110, dualMasks{32, -1}, false, nil},
-		{ip1111, ip1110, dualMasks{99, -1}, false, errInvalidMask},
+		{ip1111, ip1110, mkDM(24, -1), true},
+		{ip1111, ip1111, mkDM(-1, -1), true},
+		{ip1111, ip1110, mkDM(-1, -1), false},
+		{ip1111, ip1110, mkDM(32, -1), false},
+		{ip1111, ip1110, mkDM(99, -1), false},
 
-		{ip6666, ip6660, dualMasks{-1, 100}, true, nil},
-		{ip6666, ip6666, dualMasks{-1, -1}, true, nil},
-		{ip6666, ip6660, dualMasks{-1, -1}, false, nil},
-		{ip6666, ip6660, dualMasks{-1, 128}, false, nil},
-		{ip6666, ip6660, dualMasks{-1, 200}, false, errInvalidMask},
+		{ip6666, ip6660, mkDM(-1, 100), true},
+		{ip6666, ip6666, mkDM(-1, -1), true},
+		{ip6666, ip6660, mkDM(-1, -1), false},
+		{ip6666, ip6660, mkDM(-1, 128), false},
+		{ip6666, ip6660, mkDM(-1, 200), false},
 	}
 	for _, c := range cases {
-		ok, err := ipMatch(c.ip, c.tomatch, c.masks)
-		if ok != c.ok || err != c.err {
-			t.Errorf("[%s %s/%v]: expected %v/%v, got %v/%v",
-				c.ip, c.tomatch, c.masks, c.ok, c.err, ok, err)
+		ok := ipMatch(c.ip, c.tomatch, c.masks)
+		if ok != c.ok {
+			t.Errorf("[%s %s/%v]: expected %v, got %v",
+				c.ip, c.tomatch, c.masks, c.ok, ok)
 		}
 	}
 }
@@ -537,5 +540,50 @@ func TestWithResolver(t *testing.T) {
 		WithResolver(dns))
 	if res != Pass {
 		t.Errorf("expected pass, got %q / %q", res, err)
+	}
+}
+
+// Test some corner cases when resolver.LookupIPAddr returns an invalid
+// address. This can happen if using a buggy custom resolver.
+func TestBadResolverResponse(t *testing.T) {
+	dns := NewResolver()
+	trace = t.Logf
+
+	// When LookupIPAddr returns an invalid ip, for an "a" field.
+	dns.ip["domain1"] = []net.IP{nil}
+	dns.txt["domain1"] = []string{"v=spf1 a:domain1 -all"}
+	res, err := CheckHostWithSender(ip1111, "helo", "user@domain1",
+		WithResolver(dns))
+	if res != Fail {
+		t.Errorf("expected fail, got %q / %q", res, err)
+	}
+
+	// Same as above, except the field has a mask.
+	dns.ip["domain1"] = []net.IP{nil}
+	dns.txt["domain1"] = []string{"v=spf1 a:domain1//24 -all"}
+	res, err = CheckHostWithSender(ip1111, "helo", "user@domain1",
+		WithResolver(dns))
+	if res != Fail {
+		t.Errorf("expected fail, got %q / %q", res, err)
+	}
+
+	// When LookupIPAddr returns an invalid ip, for an "mx" field.
+	dns.ip["mx.domain1"] = []net.IP{nil}
+	dns.mx["domain1"] = []*net.MX{mx("mx.domain1", 5)}
+	dns.txt["domain1"] = []string{"v=spf1 mx:domain1 -all"}
+	res, err = CheckHostWithSender(ip1111, "helo", "user@domain1",
+		WithResolver(dns))
+	if res != Fail {
+		t.Errorf("expected fail, got %q / %q", res, err)
+	}
+
+	// Same as above, except the field has a mask.
+	dns.ip["mx.domain1"] = []net.IP{nil}
+	dns.mx["domain1"] = []*net.MX{mx("mx.domain1", 5)}
+	dns.txt["domain1"] = []string{"v=spf1 mx:domain1//24 -all"}
+	res, err = CheckHostWithSender(ip1111, "helo", "user@domain1",
+		WithResolver(dns))
+	if res != Fail {
+		t.Errorf("expected fail, got %q / %q", res, err)
 	}
 }

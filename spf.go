@@ -568,50 +568,48 @@ func (r *resolution) includeField(res Result, field, domain string) (bool, Resul
 }
 
 type dualMasks struct {
-	v4 int
-	v6 int
+	v4 net.IPMask
+	v6 net.IPMask
 }
 
-func ipMatch(ip, tomatch net.IP, masks dualMasks) (bool, error) {
-	mask := -1
-	if tomatch.To4() != nil && masks.v4 >= 0 {
+func ipMatch(ip, tomatch net.IP, masks dualMasks) bool {
+	mask := net.IPMask(nil)
+	if tomatch.To4() != nil && masks.v4 != nil {
 		mask = masks.v4
-	} else if tomatch.To4() == nil && masks.v6 >= 0 {
+	} else if tomatch.To4() == nil && masks.v6 != nil {
 		mask = masks.v6
 	}
 
-	if mask >= 0 {
-		_, ipnet, err := net.ParseCIDR(
-			fmt.Sprintf("%s/%d", tomatch.String(), mask))
-		if err != nil {
-			return false, errInvalidMask
-		}
-		return ipnet.Contains(ip), nil
+	if mask != nil {
+		ipnet := net.IPNet{IP: tomatch, Mask: mask}
+		return ipnet.Contains(ip)
 	}
 
-	return ip.Equal(tomatch), nil
+	return ip.Equal(tomatch)
 }
 
 var aRegexp = regexp.MustCompile(`^[aA](:([^/]+))?(/(\w+))?(//(\w+))?$`)
 var mxRegexp = regexp.MustCompile(`^[mM][xX](:([^/]+))?(/(\w+))?(//(\w+))?$`)
 
 func domainAndMask(re *regexp.Regexp, field, domain string) (string, dualMasks, error) {
-	masks := dualMasks{-1, -1}
+	masks := dualMasks{}
 	groups := re.FindStringSubmatch(field)
 	if groups != nil {
 		if groups[2] != "" {
 			domain = groups[2]
 		}
 		if groups[4] != "" {
-			mask4, err := strconv.Atoi(groups[4])
-			if err != nil || mask4 < 0 || mask4 > 32 {
+			i, err := strconv.Atoi(groups[4])
+			mask4 := net.CIDRMask(i, 32)
+			if err != nil || mask4 == nil {
 				return "", masks, errInvalidMask
 			}
 			masks.v4 = mask4
 		}
 		if groups[6] != "" {
-			mask6, err := strconv.Atoi(groups[6])
-			if err != nil || mask6 < 0 || mask6 > 128 {
+			i, err := strconv.Atoi(groups[6])
+			mask6 := net.CIDRMask(i, 128)
+			if err != nil || mask6 == nil {
 				return "", masks, errInvalidMask
 			}
 			masks.v6 = mask6
@@ -621,7 +619,7 @@ func domainAndMask(re *regexp.Regexp, field, domain string) (string, dualMasks, 
 
 	// Test to catch malformed entries: if there's a /, there must be at least
 	// one mask.
-	if strings.Contains(field, "/") && masks.v4 == -1 && masks.v6 == -1 {
+	if strings.Contains(field, "/") && masks.v4 == nil && masks.v6 == nil {
 		return "", masks, errInvalidMask
 	}
 
@@ -650,12 +648,9 @@ func (r *resolution) aField(res Result, field, domain string) (bool, Result, err
 		return false, "", err
 	}
 	for _, ip := range ips {
-		ok, err := ipMatch(r.ip, ip.IP, masks)
-		if ok {
+		if ipMatch(r.ip, ip.IP, masks) {
 			trace("a matched %v, %v, %v", r.ip, ip.IP, masks)
 			return true, res, errMatchedA
-		} else if err != nil {
-			return true, PermError, err
 		}
 	}
 
@@ -706,12 +701,9 @@ func (r *resolution) mxField(res Result, field, domain string) (bool, Result, er
 		}
 	}
 	for _, ip := range mxips {
-		ok, err := ipMatch(r.ip, ip, masks)
-		if ok {
+		if ipMatch(r.ip, ip, masks) {
 			trace("mx matched %v, %v, %v", r.ip, ip, masks)
 			return true, res, errMatchedMX
-		} else if err != nil {
-			return true, PermError, err
 		}
 	}
 
