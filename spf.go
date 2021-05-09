@@ -652,7 +652,7 @@ func (r *resolution) aField(res Result, field, domain string) (bool, Result, err
 	for _, ip := range ips {
 		ok, err := ipMatch(r.ip, ip.IP, masks)
 		if ok {
-			trace("mx matched %v, %v, %v", r.ip, ip.IP, masks)
+			trace("a matched %v, %v, %v", r.ip, ip.IP, masks)
 			return true, res, errMatchedA
 		} else if err != nil {
 			return true, PermError, err
