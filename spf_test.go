@@ -5,7 +5,22 @@ import (
 	"fmt"
 	"net"
 	"testing"
+
+	"blitiri.com.ar/go/spf/internal/dnstest"
 )
+
+func NewDefaultResolver() *dnstest.TestResolver {
+	dns := dnstest.NewResolver()
+	defaultResolver = dns
+	return dns
+}
+
+func init() {
+	// Override the default resolver to make sure the tests are not using the
+	// one from net. Individual tests will override this as well, but just in
+	// case.
+	NewDefaultResolver()
+}
 
 var ip1110 = net.ParseIP("1.1.1.0")
 var ip1111 = net.ParseIP("1.1.1.1")
@@ -65,15 +80,15 @@ func TestBasic(t *testing.T) {
 		{"v=spf1 redirect=", PermError, errInvalidDomain},
 	}
 
-	dns.ip["d1111"] = []net.IP{ip1111}
-	dns.ip["d1110"] = []net.IP{ip1110}
-	dns.mx["d1110"] = []*net.MX{mx("d1110", 5), mx("nothing", 10)}
-	dns.addr["1.1.1.1"] = []string{"lalala.", "xx.domain.", "d1111."}
-	dns.ip["lalala"] = []net.IP{ip1111}
-	dns.ip["xx.domain"] = []net.IP{ip1111}
+	dns.Ip["d1111"] = []net.IP{ip1111}
+	dns.Ip["d1110"] = []net.IP{ip1110}
+	dns.Mx["d1110"] = []*net.MX{mx("d1110", 5), mx("nothing", 10)}
+	dns.Addr["1.1.1.1"] = []string{"lalala.", "xx.domain.", "d1111."}
+	dns.Ip["lalala"] = []net.IP{ip1111}
+	dns.Ip["xx.domain"] = []net.IP{ip1111}
 
 	for _, c := range cases {
-		dns.txt["domain"] = []string{c.txt}
+		dns.Txt["domain"] = []string{c.txt}
 		res, err := CheckHost(ip1111, "domain")
 		if (res == TempError || res == PermError) && (err == nil) {
 			t.Errorf("%q: expected error, got nil", c.txt)
@@ -116,15 +131,15 @@ func TestIPv6(t *testing.T) {
 		{"v=spf1 ptr:sonlas7 -all", Fail, errMatchedAll},
 	}
 
-	dns.ip["d6666"] = []net.IP{ip6666}
-	dns.ip["d6660"] = []net.IP{ip6660}
-	dns.mx["d6660"] = []*net.MX{mx("d6660", 5), mx("nothing", 10)}
-	dns.addr["2001:db8::68"] = []string{"sonlas6.", "domain.", "d6666."}
-	dns.ip["domain"] = []net.IP{ip1111}
-	dns.ip["sonlas6"] = []net.IP{ip6666}
+	dns.Ip["d6666"] = []net.IP{ip6666}
+	dns.Ip["d6660"] = []net.IP{ip6660}
+	dns.Mx["d6660"] = []*net.MX{mx("d6660", 5), mx("nothing", 10)}
+	dns.Addr["2001:db8::68"] = []string{"sonlas6.", "domain.", "d6666."}
+	dns.Ip["domain"] = []net.IP{ip1111}
+	dns.Ip["sonlas6"] = []net.IP{ip6666}
 
 	for _, c := range cases {
-		dns.txt["domain"] = []string{c.txt}
+		dns.Txt["domain"] = []string{c.txt}
 		res, err := CheckHost(ip6666, "domain")
 		if (res == TempError || res == PermError) && (err == nil) {
 			t.Errorf("%q: expected error, got nil", c.txt)
@@ -142,7 +157,7 @@ func TestInclude(t *testing.T) {
 	// Test that the include is doing a recursive lookup.
 	// If we got a match on 1.1.1.1, is because include:domain2 did not match.
 	dns := NewDefaultResolver()
-	dns.txt["domain"] = []string{"v=spf1 include:domain2 ip4:1.1.1.1"}
+	dns.Txt["domain"] = []string{"v=spf1 include:domain2 ip4:1.1.1.1"}
 	trace = t.Logf
 
 	cases := []struct {
@@ -159,7 +174,7 @@ func TestInclude(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		dns.txt["domain2"] = []string{c.txt}
+		dns.Txt["domain2"] = []string{c.txt}
 		res, err := CheckHost(ip1111, "domain")
 		if res != c.res || err != c.err {
 			t.Errorf("%q: expected [%v/%v], got [%v/%v]",
@@ -170,7 +185,7 @@ func TestInclude(t *testing.T) {
 
 func TestRecursionLimit(t *testing.T) {
 	dns := NewDefaultResolver()
-	dns.txt["domain"] = []string{"v=spf1 include:domain ~all"}
+	dns.Txt["domain"] = []string{"v=spf1 include:domain ~all"}
 	trace = t.Logf
 
 	res, err := CheckHost(ip1111, "domain")
@@ -181,8 +196,8 @@ func TestRecursionLimit(t *testing.T) {
 
 func TestRedirect(t *testing.T) {
 	dns := NewDefaultResolver()
-	dns.txt["domain"] = []string{"v=spf1 redirect=domain2"}
-	dns.txt["domain2"] = []string{"v=spf1 ip4:1.1.1.1 -all"}
+	dns.Txt["domain"] = []string{"v=spf1 redirect=domain2"}
+	dns.Txt["domain2"] = []string{"v=spf1 ip4:1.1.1.1 -all"}
 	trace = t.Logf
 
 	res, err := CheckHost(ip1111, "domain")
@@ -196,7 +211,7 @@ func TestInvalidRedirect(t *testing.T) {
 	// to the redirection, this lookup should return PermError.
 	// https://tools.ietf.org/html/rfc7208#section-6.1
 	dns := NewDefaultResolver()
-	dns.txt["domain"] = []string{"v=spf1 redirect=doesnotexist"}
+	dns.Txt["domain"] = []string{"v=spf1 redirect=doesnotexist"}
 	trace = t.Logf
 
 	res, err := CheckHost(ip1111, "doesnotexist")
@@ -214,16 +229,16 @@ func TestRedirectOrder(t *testing.T) {
 	// We should only check redirects after all mechanisms, even if the
 	// redirect modifier appears before them.
 	dns := NewDefaultResolver()
-	dns.txt["faildom"] = []string{"v=spf1 -all"}
+	dns.Txt["faildom"] = []string{"v=spf1 -all"}
 	trace = t.Logf
 
-	dns.txt["domain"] = []string{"v=spf1 redirect=faildom"}
+	dns.Txt["domain"] = []string{"v=spf1 redirect=faildom"}
 	res, err := CheckHost(ip1111, "domain")
 	if res != Fail || err != errMatchedAll {
 		t.Errorf("expected fail, got %v (%v)", res, err)
 	}
 
-	dns.txt["domain"] = []string{"v=spf1 redirect=faildom all"}
+	dns.Txt["domain"] = []string{"v=spf1 redirect=faildom all"}
 	res, err = CheckHost(ip1111, "domain")
 	if res != Pass || err != errMatchedAll {
 		t.Errorf("expected pass, got %v (%v)", res, err)
@@ -232,9 +247,9 @@ func TestRedirectOrder(t *testing.T) {
 
 func TestNoRecord(t *testing.T) {
 	dns := NewDefaultResolver()
-	dns.txt["d1"] = []string{""}
-	dns.txt["d2"] = []string{"loco", "v=spf2"}
-	dns.errors["nospf"] = fmt.Errorf("no such domain")
+	dns.Txt["d1"] = []string{""}
+	dns.Txt["d2"] = []string{"loco", "v=spf2"}
+	dns.Errors["nospf"] = fmt.Errorf("no such domain")
 	trace = t.Logf
 
 	for _, domain := range []string{"d1", "d2", "d3", "nospf"} {
@@ -253,9 +268,9 @@ func TestDNSTemporaryErrors(t *testing.T) {
 	}
 
 	// Domain "tmperr" will fail resolution with a temporary error.
-	dns.errors["tmperr"] = dnsError
-	dns.errors["1.1.1.1"] = dnsError
-	dns.mx["tmpmx"] = []*net.MX{mx("tmperr", 10)}
+	dns.Errors["tmperr"] = dnsError
+	dns.Errors["1.1.1.1"] = dnsError
+	dns.Mx["tmpmx"] = []*net.MX{mx("tmperr", 10)}
 	trace = t.Logf
 
 	cases := []struct {
@@ -270,7 +285,7 @@ func TestDNSTemporaryErrors(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		dns.txt["domain"] = []string{c.txt}
+		dns.Txt["domain"] = []string{c.txt}
 		res, err := CheckHost(ip1111, "domain")
 		if res != c.res {
 			t.Errorf("%q: expected %v, got %v (%v)",
@@ -287,9 +302,9 @@ func TestDNSPermanentErrors(t *testing.T) {
 	}
 
 	// Domain "tmperr" will fail resolution with a temporary error.
-	dns.errors["tmperr"] = dnsError
-	dns.errors["1.1.1.1"] = dnsError
-	dns.mx["tmpmx"] = []*net.MX{mx("tmperr", 10)}
+	dns.Errors["tmperr"] = dnsError
+	dns.Errors["1.1.1.1"] = dnsError
+	dns.Mx["tmpmx"] = []*net.MX{mx("tmperr", 10)}
 	trace = t.Logf
 
 	cases := []struct {
@@ -304,7 +319,7 @@ func TestDNSPermanentErrors(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		dns.txt["domain"] = []string{c.txt}
+		dns.Txt["domain"] = []string{c.txt}
 		res, err := CheckHost(ip1111, "domain")
 		if res != c.res {
 			t.Errorf("%q: expected %v, got %v (%v)",
@@ -337,13 +352,13 @@ func TestMacros(t *testing.T) {
 		{"v=spf1 +a:ooo-%{o7}-ooo", Pass, errMatchedA},
 	}
 
-	dns.ip["sss-user@domain-sss"] = []net.IP{ip6666}
-	dns.ip["ooo-domain-ooo"] = []net.IP{ip6666}
-	dns.ip["ppp-unknown-ppp"] = []net.IP{ip6666}
-	dns.ip["vvv-ip6-vvv"] = []net.IP{ip6666}
+	dns.Ip["sss-user@domain-sss"] = []net.IP{ip6666}
+	dns.Ip["ooo-domain-ooo"] = []net.IP{ip6666}
+	dns.Ip["ppp-unknown-ppp"] = []net.IP{ip6666}
+	dns.Ip["vvv-ip6-vvv"] = []net.IP{ip6666}
 
 	for _, c := range cases {
-		dns.txt["domain"] = []string{c.txt}
+		dns.Txt["domain"] = []string{c.txt}
 		res, err := CheckHostWithSender(ip6666, "helo", "user@domain")
 		if (res == TempError || res == PermError) && (err == nil) {
 			t.Errorf("%q: expected error, got nil", c.txt)
@@ -377,15 +392,15 @@ func TestMacrosV4(t *testing.T) {
 		{"v=spf1 +a:vvv-%{v}-vvv", Pass, errMatchedA},
 	}
 
-	dns.ip["sr-com.user@domain-sr"] = []net.IP{ip1111}
-	dns.ip["sra-com.user@domain-sra"] = []net.IP{ip1111}
-	dns.ip["o7-domain.com-o7"] = []net.IP{ip1111}
-	dns.ip["o1-com-o1"] = []net.IP{ip1111}
-	dns.ip["o1r-domain-o1r"] = []net.IP{ip1111}
-	dns.ip["vvv-in-addr-vvv"] = []net.IP{ip1111}
+	dns.Ip["sr-com.user@domain-sr"] = []net.IP{ip1111}
+	dns.Ip["sra-com.user@domain-sra"] = []net.IP{ip1111}
+	dns.Ip["o7-domain.com-o7"] = []net.IP{ip1111}
+	dns.Ip["o1-com-o1"] = []net.IP{ip1111}
+	dns.Ip["o1r-domain-o1r"] = []net.IP{ip1111}
+	dns.Ip["vvv-in-addr-vvv"] = []net.IP{ip1111}
 
 	for _, c := range cases {
-		dns.txt["domain.com"] = []string{c.txt}
+		dns.Txt["domain.com"] = []string{c.txt}
 		res, err := CheckHostWithSender(ip1111, "helo", "user@domain.com")
 		if (res == TempError || res == PermError) && (err == nil) {
 			t.Errorf("%q: expected error, got nil", c.txt)
@@ -461,8 +476,8 @@ func TestNullTrace(t *testing.T) {
 	dns := NewDefaultResolver()
 	trace = nullTrace
 
-	dns.txt["domain1"] = []string{"v=spf1 include:domain2"}
-	dns.txt["domain2"] = []string{"v=spf1 +all"}
+	dns.Txt["domain1"] = []string{"v=spf1 include:domain2"}
+	dns.Txt["domain2"] = []string{"v=spf1 +all"}
 
 	// Do a normal resolution, check it passes.
 	res, err := CheckHostWithSender(ip1111, "helo", "user@domain1")
@@ -475,10 +490,10 @@ func TestOverrideLookupLimit(t *testing.T) {
 	dns := NewDefaultResolver()
 	trace = t.Logf
 
-	dns.txt["domain1"] = []string{"v=spf1 include:domain2"}
-	dns.txt["domain2"] = []string{"v=spf1 include:domain3"}
-	dns.txt["domain3"] = []string{"v=spf1 include:domain4"}
-	dns.txt["domain4"] = []string{"v=spf1 +all"}
+	dns.Txt["domain1"] = []string{"v=spf1 include:domain2"}
+	dns.Txt["domain2"] = []string{"v=spf1 include:domain3"}
+	dns.Txt["domain3"] = []string{"v=spf1 include:domain4"}
+	dns.Txt["domain4"] = []string{"v=spf1 +all"}
 
 	// The default of 10 should be enough.
 	res, err := CheckHostWithSender(ip1111, "helo", "user@domain1")
@@ -506,8 +521,8 @@ func TestWithContext(t *testing.T) {
 	dns := NewDefaultResolver()
 	trace = t.Logf
 
-	dns.txt["domain1"] = []string{"v=spf1 include:domain2"}
-	dns.txt["domain2"] = []string{"v=spf1 +all"}
+	dns.Txt["domain1"] = []string{"v=spf1 include:domain2"}
+	dns.Txt["domain2"] = []string{"v=spf1 +all"}
 
 	// With a normal context.
 	ctx := context.Background()
@@ -529,12 +544,12 @@ func TestWithContext(t *testing.T) {
 
 func TestWithResolver(t *testing.T) {
 	// Use a custom resolver, making sure it's different from the default.
-	defaultResolver = NewResolver()
-	dns := NewResolver()
+	defaultResolver = dnstest.NewResolver()
+	dns := dnstest.NewResolver()
 	trace = t.Logf
 
-	dns.txt["domain1"] = []string{"v=spf1 include:domain2"}
-	dns.txt["domain2"] = []string{"v=spf1 +all"}
+	dns.Txt["domain1"] = []string{"v=spf1 include:domain2"}
+	dns.Txt["domain2"] = []string{"v=spf1 +all"}
 
 	res, err := CheckHostWithSender(ip1111, "helo", "user@domain1",
 		WithResolver(dns))
@@ -546,12 +561,12 @@ func TestWithResolver(t *testing.T) {
 // Test some corner cases when resolver.LookupIPAddr returns an invalid
 // address. This can happen if using a buggy custom resolver.
 func TestBadResolverResponse(t *testing.T) {
-	dns := NewResolver()
+	dns := dnstest.NewResolver()
 	trace = t.Logf
 
 	// When LookupIPAddr returns an invalid ip, for an "a" field.
-	dns.ip["domain1"] = []net.IP{nil}
-	dns.txt["domain1"] = []string{"v=spf1 a:domain1 -all"}
+	dns.Ip["domain1"] = []net.IP{nil}
+	dns.Txt["domain1"] = []string{"v=spf1 a:domain1 -all"}
 	res, err := CheckHostWithSender(ip1111, "helo", "user@domain1",
 		WithResolver(dns))
 	if res != Fail {
@@ -559,8 +574,8 @@ func TestBadResolverResponse(t *testing.T) {
 	}
 
 	// Same as above, except the field has a mask.
-	dns.ip["domain1"] = []net.IP{nil}
-	dns.txt["domain1"] = []string{"v=spf1 a:domain1//24 -all"}
+	dns.Ip["domain1"] = []net.IP{nil}
+	dns.Txt["domain1"] = []string{"v=spf1 a:domain1//24 -all"}
 	res, err = CheckHostWithSender(ip1111, "helo", "user@domain1",
 		WithResolver(dns))
 	if res != Fail {
@@ -568,9 +583,9 @@ func TestBadResolverResponse(t *testing.T) {
 	}
 
 	// When LookupIPAddr returns an invalid ip, for an "mx" field.
-	dns.ip["mx.domain1"] = []net.IP{nil}
-	dns.mx["domain1"] = []*net.MX{mx("mx.domain1", 5)}
-	dns.txt["domain1"] = []string{"v=spf1 mx:domain1 -all"}
+	dns.Ip["mx.domain1"] = []net.IP{nil}
+	dns.Mx["domain1"] = []*net.MX{mx("mx.domain1", 5)}
+	dns.Txt["domain1"] = []string{"v=spf1 mx:domain1 -all"}
 	res, err = CheckHostWithSender(ip1111, "helo", "user@domain1",
 		WithResolver(dns))
 	if res != Fail {
@@ -578,9 +593,9 @@ func TestBadResolverResponse(t *testing.T) {
 	}
 
 	// Same as above, except the field has a mask.
-	dns.ip["mx.domain1"] = []net.IP{nil}
-	dns.mx["domain1"] = []*net.MX{mx("mx.domain1", 5)}
-	dns.txt["domain1"] = []string{"v=spf1 mx:domain1//24 -all"}
+	dns.Ip["mx.domain1"] = []net.IP{nil}
+	dns.Mx["domain1"] = []*net.MX{mx("mx.domain1", 5)}
+	dns.Txt["domain1"] = []string{"v=spf1 mx:domain1//24 -all"}
 	res, err = CheckHostWithSender(ip1111, "helo", "user@domain1",
 		WithResolver(dns))
 	if res != Fail {

@@ -1,4 +1,10 @@
-package spf
+// DNS resolver for testing purposes.
+//
+// In the future, when go fuzz can make use of _test.go files, we can rename
+// this file dns_test.go and remove this extra package entirely.
+// Until then, unfortunately this is the most reasonable way to share these
+// helpers between go and fuzz tests.
+package dnstest
 
 import (
 	"context"
@@ -6,30 +12,27 @@ import (
 	"strings"
 )
 
-// DNS overrides for testing.
-
+// Testing DNS resolver.
+//
+// Not exported since this is not part of the public API and only used
+// internally on tests.
+//
 type TestResolver struct {
-	txt    map[string][]string
-	mx     map[string][]*net.MX
-	ip     map[string][]net.IP
-	addr   map[string][]string
-	errors map[string]error
+	Txt    map[string][]string
+	Mx     map[string][]*net.MX
+	Ip     map[string][]net.IP
+	Addr   map[string][]string
+	Errors map[string]error
 }
 
 func NewResolver() *TestResolver {
 	return &TestResolver{
-		txt:    map[string][]string{},
-		mx:     map[string][]*net.MX{},
-		ip:     map[string][]net.IP{},
-		addr:   map[string][]string{},
-		errors: map[string]error{},
+		Txt:    map[string][]string{},
+		Mx:     map[string][]*net.MX{},
+		Ip:     map[string][]net.IP{},
+		Addr:   map[string][]string{},
+		Errors: map[string]error{},
 	}
-}
-
-func NewDefaultResolver() *TestResolver {
-	dns := NewResolver()
-	defaultResolver = dns
-	return dns
 }
 
 func (r *TestResolver) LookupTXT(ctx context.Context, domain string) (txts []string, err error) {
@@ -38,7 +41,7 @@ func (r *TestResolver) LookupTXT(ctx context.Context, domain string) (txts []str
 	}
 	domain = strings.ToLower(domain)
 	domain = strings.TrimRight(domain, ".")
-	return r.txt[domain], r.errors[domain]
+	return r.Txt[domain], r.Errors[domain]
 }
 
 func (r *TestResolver) LookupMX(ctx context.Context, domain string) (mxs []*net.MX, err error) {
@@ -47,7 +50,7 @@ func (r *TestResolver) LookupMX(ctx context.Context, domain string) (mxs []*net.
 	}
 	domain = strings.ToLower(domain)
 	domain = strings.TrimRight(domain, ".")
-	return r.mx[domain], r.errors[domain]
+	return r.Mx[domain], r.Errors[domain]
 }
 
 func (r *TestResolver) LookupIPAddr(ctx context.Context, host string) (as []net.IPAddr, err error) {
@@ -56,7 +59,7 @@ func (r *TestResolver) LookupIPAddr(ctx context.Context, host string) (as []net.
 	}
 	host = strings.ToLower(host)
 	host = strings.TrimRight(host, ".")
-	return ipsToAddrs(r.ip[host]), r.errors[host]
+	return ipsToAddrs(r.Ip[host]), r.Errors[host]
 }
 
 func ipsToAddrs(ips []net.IP) []net.IPAddr {
@@ -73,12 +76,5 @@ func (r *TestResolver) LookupAddr(ctx context.Context, host string) (addrs []str
 	}
 	host = strings.ToLower(host)
 	host = strings.TrimRight(host, ".")
-	return r.addr[host], r.errors[host]
-}
-
-func init() {
-	// Override the default resolver to make sure the tests are not using the
-	// one from net. Individual tests will override this as well, but just in
-	// case.
-	NewDefaultResolver()
+	return r.Addr[host], r.Errors[host]
 }

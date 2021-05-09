@@ -166,7 +166,7 @@ func testRFC(t *testing.T, fname string) {
 						Err:       "test timeout error",
 						IsTimeout: true,
 					}
-					dns.errors[domain] = err
+					dns.Errors[domain] = err
 				}
 				if record.SERVFAIL {
 					err := &net.DNSError{
@@ -174,19 +174,19 @@ func testRFC(t *testing.T, fname string) {
 						IsTimeout:   false,
 						IsTemporary: false,
 					}
-					dns.errors[domain] = err
+					dns.Errors[domain] = err
 				}
 				for _, s := range record.A {
-					dns.ip[domain] = append(dns.ip[domain], net.ParseIP(s))
+					dns.Ip[domain] = append(dns.Ip[domain], net.ParseIP(s))
 				}
 				for _, s := range record.AAAA {
-					dns.ip[domain] = append(dns.ip[domain], net.ParseIP(s))
+					dns.Ip[domain] = append(dns.Ip[domain], net.ParseIP(s))
 				}
 				for _, s := range record.TXT {
-					dns.txt[domain] = append(dns.txt[domain], s)
+					dns.Txt[domain] = append(dns.Txt[domain], s)
 				}
 				if record.MX != nil {
-					dns.mx[domain] = append(dns.mx[domain],
+					dns.Mx[domain] = append(dns.Mx[domain],
 						mx(record.MX.Host, record.MX.Prio))
 				}
 				for _, s := range record.PTR {
@@ -201,7 +201,7 @@ func testRFC(t *testing.T, fname string) {
 						s += "."
 					}
 					ip := reverseDNS(t, domain).String()
-					dns.addr[ip] = append(dns.addr[ip], s)
+					dns.Addr[ip] = append(dns.Addr[ip], s)
 				}
 				// TODO: CNAME
 			}
@@ -214,12 +214,12 @@ func testRFC(t *testing.T, fname string) {
 			// only adding records from SPF if there is no TXT already.
 			// We need to do this in a separate step because order of
 			// appearance is not guaranteed.
-			if len(dns.txt[domain]) == 0 {
+			if len(dns.Txt[domain]) == 0 {
 				for _, record := range records {
 					if len(record.SPF) > 0 {
 						// The test suite expect a single-line SPF record to be
 						// concatenated without spaces.
-						dns.txt[domain] = append(dns.txt[domain],
+						dns.Txt[domain] = append(dns.Txt[domain],
 							strings.Join(record.SPF, ""))
 					}
 				}
