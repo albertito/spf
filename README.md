@@ -10,7 +10,7 @@
 implementation of the Sender Policy Framework (SPF) in Go.
 
 It is used by the [chasquid](https://blitiri.com.ar/p/chasquid/) and
-[maddy](https://foxcpp.dev/maddy) SMTP servers.
+[maddy](https://maddy.email) SMTP servers.
 
 
 ## Example
