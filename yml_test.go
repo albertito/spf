@@ -150,7 +150,7 @@ func testRFC(t *testing.T, fname string) {
 		suites = append(suites, s)
 	}
 
-	trace = t.Logf
+	defaultTrace = t.Logf
 
 	for _, suite := range suites {
 		t.Logf("suite: %v", suite.Description)

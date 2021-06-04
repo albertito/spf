@@ -29,7 +29,7 @@ var ip6660 = net.ParseIP("2001:db8::0")
 
 func TestBasic(t *testing.T) {
 	dns := NewDefaultResolver()
-	trace = t.Logf
+	defaultTrace = t.Logf
 
 	cases := []struct {
 		txt string
@@ -104,7 +104,7 @@ func TestBasic(t *testing.T) {
 
 func TestIPv6(t *testing.T) {
 	dns := NewDefaultResolver()
-	trace = t.Logf
+	defaultTrace = t.Logf
 
 	cases := []struct {
 		txt string
@@ -158,7 +158,7 @@ func TestInclude(t *testing.T) {
 	// If we got a match on 1.1.1.1, is because include:domain2 did not match.
 	dns := NewDefaultResolver()
 	dns.Txt["domain"] = []string{"v=spf1 include:domain2 ip4:1.1.1.1"}
-	trace = t.Logf
+	defaultTrace = t.Logf
 
 	cases := []struct {
 		txt string
@@ -186,7 +186,7 @@ func TestInclude(t *testing.T) {
 func TestRecursionLimit(t *testing.T) {
 	dns := NewDefaultResolver()
 	dns.Txt["domain"] = []string{"v=spf1 include:domain ~all"}
-	trace = t.Logf
+	defaultTrace = t.Logf
 
 	res, err := CheckHost(ip1111, "domain")
 	if res != PermError || err != errLookupLimitReached {
@@ -198,7 +198,7 @@ func TestRedirect(t *testing.T) {
 	dns := NewDefaultResolver()
 	dns.Txt["domain"] = []string{"v=spf1 redirect=domain2"}
 	dns.Txt["domain2"] = []string{"v=spf1 ip4:1.1.1.1 -all"}
-	trace = t.Logf
+	defaultTrace = t.Logf
 
 	res, err := CheckHost(ip1111, "domain")
 	if res != Pass {
@@ -212,7 +212,7 @@ func TestInvalidRedirect(t *testing.T) {
 	// https://tools.ietf.org/html/rfc7208#section-6.1
 	dns := NewDefaultResolver()
 	dns.Txt["domain"] = []string{"v=spf1 redirect=doesnotexist"}
-	trace = t.Logf
+	defaultTrace = t.Logf
 
 	res, err := CheckHost(ip1111, "doesnotexist")
 	if res != None {
@@ -230,7 +230,7 @@ func TestRedirectOrder(t *testing.T) {
 	// redirect modifier appears before them.
 	dns := NewDefaultResolver()
 	dns.Txt["faildom"] = []string{"v=spf1 -all"}
-	trace = t.Logf
+	defaultTrace = t.Logf
 
 	dns.Txt["domain"] = []string{"v=spf1 redirect=faildom"}
 	res, err := CheckHost(ip1111, "domain")
@@ -250,7 +250,7 @@ func TestNoRecord(t *testing.T) {
 	dns.Txt["d1"] = []string{""}
 	dns.Txt["d2"] = []string{"loco", "v=spf2"}
 	dns.Errors["nospf"] = fmt.Errorf("no such domain")
-	trace = t.Logf
+	defaultTrace = t.Logf
 
 	for _, domain := range []string{"d1", "d2", "d3", "nospf"} {
 		res, err := CheckHost(ip1111, domain)
@@ -271,7 +271,7 @@ func TestDNSTemporaryErrors(t *testing.T) {
 	dns.Errors["tmperr"] = dnsError
 	dns.Errors["1.1.1.1"] = dnsError
 	dns.Mx["tmpmx"] = []*net.MX{mx("tmperr", 10)}
-	trace = t.Logf
+	defaultTrace = t.Logf
 
 	cases := []struct {
 		txt string
@@ -305,7 +305,7 @@ func TestDNSPermanentErrors(t *testing.T) {
 	dns.Errors["tmperr"] = dnsError
 	dns.Errors["1.1.1.1"] = dnsError
 	dns.Mx["tmpmx"] = []*net.MX{mx("tmperr", 10)}
-	trace = t.Logf
+	defaultTrace = t.Logf
 
 	cases := []struct {
 		txt string
@@ -330,7 +330,7 @@ func TestDNSPermanentErrors(t *testing.T) {
 
 func TestMacros(t *testing.T) {
 	dns := NewDefaultResolver()
-	trace = t.Logf
+	defaultTrace = t.Logf
 
 	// Most of the cases are covered by the standard test suite, so this is
 	// targeted at gaps in coverage.
@@ -376,7 +376,7 @@ func TestMacros(t *testing.T) {
 
 func TestMacrosV4(t *testing.T) {
 	dns := NewDefaultResolver()
-	trace = t.Logf
+	defaultTrace = t.Logf
 
 	// Like TestMacros above, but specifically for IPv4.
 	// It's easier to have a separate suite.
@@ -462,6 +462,7 @@ func TestInvalidMacro(t *testing.T) {
 			ip:     ip1111,
 			count:  0,
 			sender: "sender.com",
+			trace:  t.Logf,
 		}
 
 		out, err := r.expandMacros(macro, "sender.com")
@@ -476,7 +477,7 @@ func TestInvalidMacro(t *testing.T) {
 // other tests override it.
 func TestNullTrace(t *testing.T) {
 	dns := NewDefaultResolver()
-	trace = nullTrace
+	defaultTrace = nullTrace
 
 	dns.Txt["domain1"] = []string{"v=spf1 include:domain2"}
 	dns.Txt["domain2"] = []string{"v=spf1 +all"}
@@ -490,7 +491,7 @@ func TestNullTrace(t *testing.T) {
 
 func TestOverrideLookupLimit(t *testing.T) {
 	dns := NewDefaultResolver()
-	trace = t.Logf
+	defaultTrace = t.Logf
 
 	dns.Txt["domain1"] = []string{"v=spf1 include:domain2"}
 	dns.Txt["domain2"] = []string{"v=spf1 include:domain3"}
@@ -521,7 +522,7 @@ func TestOverrideLookupLimit(t *testing.T) {
 
 func TestWithContext(t *testing.T) {
 	dns := NewDefaultResolver()
-	trace = t.Logf
+	defaultTrace = t.Logf
 
 	dns.Txt["domain1"] = []string{"v=spf1 include:domain2"}
 	dns.Txt["domain2"] = []string{"v=spf1 +all"}
@@ -548,7 +549,7 @@ func TestWithResolver(t *testing.T) {
 	// Use a custom resolver, making sure it's different from the default.
 	defaultResolver = dnstest.NewResolver()
 	dns := dnstest.NewResolver()
-	trace = t.Logf
+	defaultTrace = t.Logf
 
 	dns.Txt["domain1"] = []string{"v=spf1 include:domain2"}
 	dns.Txt["domain2"] = []string{"v=spf1 +all"}
@@ -564,7 +565,7 @@ func TestWithResolver(t *testing.T) {
 // address. This can happen if using a buggy custom resolver.
 func TestBadResolverResponse(t *testing.T) {
 	dns := dnstest.NewResolver()
-	trace = t.Logf
+	defaultTrace = t.Logf
 
 	// When LookupIPAddr returns an invalid ip, for an "a" field.
 	dns.Ip["domain1"] = []net.IP{nil}
@@ -602,5 +603,29 @@ func TestBadResolverResponse(t *testing.T) {
 		WithResolver(dns))
 	if res != Fail {
 		t.Errorf("expected fail, got %q / %q", res, err)
+	}
+}
+
+func TestWithTraceFunc(t *testing.T) {
+	calls := 0
+	var trace TraceFunc = func(f string, a ...interface{}) {
+		calls++
+		t.Logf("tracing "+f, a...)
+	}
+
+	dns := NewDefaultResolver()
+
+	dns.Txt["domain1"] = []string{"v=spf1 include:domain2"}
+	dns.Txt["domain2"] = []string{"v=spf1 +all"}
+
+	// Do a normal resolution, check it passes.
+	res, err := CheckHostWithSender(ip1111, "helo", "user@domain1",
+		WithTraceFunc(trace))
+	if res != Pass {
+		t.Errorf("expected pass, got %q / %q", res, err)
+	}
+
+	if calls == 0 {
+		t.Errorf("expected >0 trace function calls, got 0")
 	}
 }
