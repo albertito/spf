@@ -831,7 +831,19 @@ func (r *resolution) expandMacros(s, domain string) (string, error) {
 			case "d":
 				str = domain
 			case "i":
-				str = r.ip.String()
+				// str = r.ip.String()
+				switch r.ip.To4() {
+				case nil: // ipv6
+					// expand the ipv6 address to it's full dotted representation.
+					var sb strings.Builder
+					sb.Grow(64)
+					for _, b := range r.ip.To16() {
+						fmt.Fprintf(&sb, ".%x.%x", b>>4, b&0b1111)
+					}
+					str = sb.String()
+				default: // ipv4
+					str = r.ip.String()
+				}
 			case "p":
 				// This shouldn't be used, we don't want to support it, it's
 				// risky. "unknown" is a safe value.
