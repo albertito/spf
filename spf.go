@@ -831,7 +831,7 @@ func (r *resolution) expandMacros(s, domain string) (string, error) {
 			case "d":
 				str = domain
 			case "i":
-				str = r.ip.String()
+				str = ipToMacroStr(r.ip)
 			case "p":
 				// This shouldn't be used, we don't want to support it, it's
 				// risky. "unknown" is a safe value.
@@ -898,4 +898,20 @@ func reverseStrings(a []string) {
 	for left, right := 0, len(a)-1; left < right; left, right = left+1, right-1 {
 		a[left], a[right] = a[right], a[left]
 	}
+}
+
+func ipToMacroStr(ip net.IP) string {
+	if ip.To4() != nil {
+		return ip.String()
+	}
+
+	// For IPv6 addresses, the "i" macro expands to a dot-format address.
+	// https://datatracker.ietf.org/doc/html/rfc7208#section-7.3
+	sb := strings.Builder{}
+	sb.Grow(64)
+	for _, b := range ip.To16() {
+		fmt.Fprintf(&sb, "%x.%x.", b>>4, b&0xf)
+	}
+	// Return the string without the trailing ".".
+	return sb.String()[:sb.Len()-1]
 }
