@@ -36,48 +36,48 @@ func TestBasic(t *testing.T) {
 		res Result
 		err error
 	}{
-		{"", None, errNoResult},
-		{"blah", None, errNoResult},
+		{"", None, ErrNoResult},
+		{"blah", None, ErrNoResult},
 		{"v=spf1", Neutral, nil},
 		{"v=spf1 ", Neutral, nil},
-		{"v=spf1 -", PermError, errUnknownField},
-		{"v=spf1 all", Pass, errMatchedAll},
-		{"v=spf1 exp=blah +all", Pass, errMatchedAll},
-		{"v=spf1  +all", Pass, errMatchedAll},
-		{"v=spf1 -all ", Fail, errMatchedAll},
-		{"v=spf1 ~all", SoftFail, errMatchedAll},
-		{"v=spf1 ?all", Neutral, errMatchedAll},
-		{"v=spf1 a ~all", SoftFail, errMatchedAll},
+		{"v=spf1 -", PermError, ErrUnknownField},
+		{"v=spf1 all", Pass, ErrMatchedAll},
+		{"v=spf1 exp=blah +all", Pass, ErrMatchedAll},
+		{"v=spf1  +all", Pass, ErrMatchedAll},
+		{"v=spf1 -all ", Fail, ErrMatchedAll},
+		{"v=spf1 ~all", SoftFail, ErrMatchedAll},
+		{"v=spf1 ?all", Neutral, ErrMatchedAll},
+		{"v=spf1 a ~all", SoftFail, ErrMatchedAll},
 		{"v=spf1 a/24", Neutral, nil},
-		{"v=spf1 a:d1110/24", Pass, errMatchedA},
-		{"v=spf1 a:d1110/montoto", PermError, errInvalidMask},
-		{"v=spf1 a:d1110/99", PermError, errInvalidMask},
+		{"v=spf1 a:d1110/24", Pass, ErrMatchedA},
+		{"v=spf1 a:d1110/montoto", PermError, ErrInvalidMask},
+		{"v=spf1 a:d1110/99", PermError, ErrInvalidMask},
 		{"v=spf1 a:d1110/32", Neutral, nil},
 		{"v=spf1 a:d1110", Neutral, nil},
-		{"v=spf1 a:d1111", Pass, errMatchedA},
+		{"v=spf1 a:d1111", Pass, ErrMatchedA},
 		{"v=spf1 a:nothing/24", Neutral, nil},
 		{"v=spf1 mx", Neutral, nil},
 		{"v=spf1 mx/24", Neutral, nil},
-		{"v=spf1 mx:a/montoto ~all", PermError, errInvalidMask},
-		{"v=spf1 mx:d1110/24 ~all", Pass, errMatchedMX},
-		{"v=spf1 mx:d1110/24//100 ~all", Pass, errMatchedMX},
-		{"v=spf1 mx:d1110/24//129 ~all", PermError, errInvalidMask},
-		{"v=spf1 mx:d1110/24/100 ~all", PermError, errInvalidMask},
-		{"v=spf1 mx:d1110/99 ~all", PermError, errInvalidMask},
-		{"v=spf1 ip4:1.2.3.4 ~all", SoftFail, errMatchedAll},
-		{"v=spf1 ip6:12 ~all", PermError, errInvalidIP},
-		{"v=spf1 ip4:1.1.1.1 -all", Pass, errMatchedIP},
-		{"v=spf1 ip4:1.1.1.1/24 -all", Pass, errMatchedIP},
-		{"v=spf1 ip4:1.1.1.1/lala -all", PermError, errInvalidMask},
-		{"v=spf1 ip4:1.1.1.1/33 -all", PermError, errInvalidMask},
-		{"v=spf1 include:doesnotexist", PermError, errNoResult},
-		{"v=spf1 ptr -all", Pass, errMatchedPTR},
-		{"v=spf1 ptr:d1111 -all", Pass, errMatchedPTR},
-		{"v=spf1 ptr:lalala -all", Pass, errMatchedPTR},
-		{"v=spf1 ptr:doesnotexist -all", Fail, errMatchedAll},
-		{"v=spf1 blah", PermError, errUnknownField},
-		{"v=spf1 exists:d1111 -all", Pass, errMatchedExists},
-		{"v=spf1 redirect=", PermError, errInvalidDomain},
+		{"v=spf1 mx:a/montoto ~all", PermError, ErrInvalidMask},
+		{"v=spf1 mx:d1110/24 ~all", Pass, ErrMatchedMX},
+		{"v=spf1 mx:d1110/24//100 ~all", Pass, ErrMatchedMX},
+		{"v=spf1 mx:d1110/24//129 ~all", PermError, ErrInvalidMask},
+		{"v=spf1 mx:d1110/24/100 ~all", PermError, ErrInvalidMask},
+		{"v=spf1 mx:d1110/99 ~all", PermError, ErrInvalidMask},
+		{"v=spf1 ip4:1.2.3.4 ~all", SoftFail, ErrMatchedAll},
+		{"v=spf1 ip6:12 ~all", PermError, ErrInvalidIP},
+		{"v=spf1 ip4:1.1.1.1 -all", Pass, ErrMatchedIP},
+		{"v=spf1 ip4:1.1.1.1/24 -all", Pass, ErrMatchedIP},
+		{"v=spf1 ip4:1.1.1.1/lala -all", PermError, ErrInvalidMask},
+		{"v=spf1 ip4:1.1.1.1/33 -all", PermError, ErrInvalidMask},
+		{"v=spf1 include:doesnotexist", PermError, ErrNoResult},
+		{"v=spf1 ptr -all", Pass, ErrMatchedPTR},
+		{"v=spf1 ptr:d1111 -all", Pass, ErrMatchedPTR},
+		{"v=spf1 ptr:lalala -all", Pass, ErrMatchedPTR},
+		{"v=spf1 ptr:doesnotexist -all", Fail, ErrMatchedAll},
+		{"v=spf1 blah", PermError, ErrUnknownField},
+		{"v=spf1 exists:d1111 -all", Pass, ErrMatchedExists},
+		{"v=spf1 redirect=", PermError, ErrInvalidDomain},
 	}
 
 	dns.Ip["d1111"] = []net.IP{ip1111}
@@ -111,24 +111,24 @@ func TestIPv6(t *testing.T) {
 		res Result
 		err error
 	}{
-		{"v=spf1 all", Pass, errMatchedAll},
-		{"v=spf1 a ~all", SoftFail, errMatchedAll},
+		{"v=spf1 all", Pass, ErrMatchedAll},
+		{"v=spf1 a ~all", SoftFail, ErrMatchedAll},
 		{"v=spf1 a/24", Neutral, nil},
-		{"v=spf1 a:d6660//24", Pass, errMatchedA},
-		{"v=spf1 a:d6660/24//100", Pass, errMatchedA},
+		{"v=spf1 a:d6660//24", Pass, ErrMatchedA},
+		{"v=spf1 a:d6660/24//100", Pass, ErrMatchedA},
 		{"v=spf1 a:d6660", Neutral, nil},
-		{"v=spf1 a:d6666", Pass, errMatchedA},
+		{"v=spf1 a:d6666", Pass, ErrMatchedA},
 		{"v=spf1 a:nothing//24", Neutral, nil},
-		{"v=spf1 mx:d6660//24 ~all", Pass, errMatchedMX},
-		{"v=spf1 mx:d6660/24//100 ~all", Pass, errMatchedMX},
-		{"v=spf1 mx:d6660/24/100 ~all", PermError, errInvalidMask},
-		{"v=spf1 ip6:2001:db8::68 ~all", Pass, errMatchedIP},
-		{"v=spf1 ip6:2001:db8::1/24 ~all", Pass, errMatchedIP},
-		{"v=spf1 ip6:2001:db8::1/100 ~all", Pass, errMatchedIP},
-		{"v=spf1 ptr -all", Pass, errMatchedPTR},
-		{"v=spf1 ptr:d6666 -all", Pass, errMatchedPTR},
-		{"v=spf1 ptr:sonlas6 -all", Pass, errMatchedPTR},
-		{"v=spf1 ptr:sonlas7 -all", Fail, errMatchedAll},
+		{"v=spf1 mx:d6660//24 ~all", Pass, ErrMatchedMX},
+		{"v=spf1 mx:d6660/24//100 ~all", Pass, ErrMatchedMX},
+		{"v=spf1 mx:d6660/24/100 ~all", PermError, ErrInvalidMask},
+		{"v=spf1 ip6:2001:db8::68 ~all", Pass, ErrMatchedIP},
+		{"v=spf1 ip6:2001:db8::1/24 ~all", Pass, ErrMatchedIP},
+		{"v=spf1 ip6:2001:db8::1/100 ~all", Pass, ErrMatchedIP},
+		{"v=spf1 ptr -all", Pass, ErrMatchedPTR},
+		{"v=spf1 ptr:d6666 -all", Pass, ErrMatchedPTR},
+		{"v=spf1 ptr:sonlas6 -all", Pass, ErrMatchedPTR},
+		{"v=spf1 ptr:sonlas7 -all", Fail, ErrMatchedAll},
 	}
 
 	dns.Ip["d6666"] = []net.IP{ip6666}
@@ -165,12 +165,12 @@ func TestInclude(t *testing.T) {
 		res Result
 		err error
 	}{
-		{"", PermError, errNoResult},
-		{"v=spf1 all", Pass, errMatchedAll},
+		{"", PermError, ErrNoResult},
+		{"v=spf1 all", Pass, ErrMatchedAll},
 
 		// domain2 did not pass, so continued and matched parent's ip4.
-		{"v=spf1", Pass, errMatchedIP},
-		{"v=spf1 -all", Pass, errMatchedIP},
+		{"v=spf1", Pass, ErrMatchedIP},
+		{"v=spf1 -all", Pass, ErrMatchedIP},
 	}
 
 	for _, c := range cases {
@@ -189,7 +189,7 @@ func TestRecursionLimit(t *testing.T) {
 	defaultTrace = t.Logf
 
 	res, err := CheckHost(ip1111, "domain")
-	if res != PermError || err != errLookupLimitReached {
+	if res != PermError || err != ErrLookupLimitReached {
 		t.Errorf("expected permerror, got %v (%v)", res, err)
 	}
 }
@@ -220,7 +220,7 @@ func TestInvalidRedirect(t *testing.T) {
 	}
 
 	res, err = CheckHost(ip1111, "domain")
-	if res != PermError || err != errNoResult {
+	if res != PermError || err != ErrNoResult {
 		t.Errorf("expected permerror, got %v (%v)", res, err)
 	}
 }
@@ -234,13 +234,13 @@ func TestRedirectOrder(t *testing.T) {
 
 	dns.Txt["domain"] = []string{"v=spf1 redirect=faildom"}
 	res, err := CheckHost(ip1111, "domain")
-	if res != Fail || err != errMatchedAll {
+	if res != Fail || err != ErrMatchedAll {
 		t.Errorf("expected fail, got %v (%v)", res, err)
 	}
 
 	dns.Txt["domain"] = []string{"v=spf1 redirect=faildom all"}
 	res, err = CheckHost(ip1111, "domain")
-	if res != Pass || err != errMatchedAll {
+	if res != Pass || err != ErrMatchedAll {
 		t.Errorf("expected pass, got %v (%v)", res, err)
 	}
 }
@@ -339,18 +339,18 @@ func TestMacros(t *testing.T) {
 		res Result
 		err error
 	}{
-		{"v=spf1 ptr:%{fff} -all", PermError, errInvalidMacro},
-		{"v=spf1 mx:%{fff} -all", PermError, errInvalidMacro},
-		{"v=spf1 redirect=%{fff}", PermError, errInvalidMacro},
-		{"v=spf1 a:%{o0}", PermError, errInvalidMacro},
-		{"v=spf1 +a:sss-%{s}-sss", Pass, errMatchedA},
-		{"v=spf1 +a:ooo-%{o}-ooo", Pass, errMatchedA},
-		{"v=spf1 +a:OOO-%{O}-OOO", Pass, errMatchedA},
-		{"v=spf1 +a:ppp-%{p}-ppp", Pass, errMatchedA},
-		{"v=spf1 +a:vvv-%{v}-vvv", Pass, errMatchedA},
-		{"v=spf1 a:%{x}", PermError, errInvalidMacro},
-		{"v=spf1 +a:ooo-%{o7}-ooo", Pass, errMatchedA},
-		{"v=spf1 exists:%{ir}.vvv -all", Pass, errMatchedExists},
+		{"v=spf1 ptr:%{fff} -all", PermError, ErrInvalidMacro},
+		{"v=spf1 mx:%{fff} -all", PermError, ErrInvalidMacro},
+		{"v=spf1 redirect=%{fff}", PermError, ErrInvalidMacro},
+		{"v=spf1 a:%{o0}", PermError, ErrInvalidMacro},
+		{"v=spf1 +a:sss-%{s}-sss", Pass, ErrMatchedA},
+		{"v=spf1 +a:ooo-%{o}-ooo", Pass, ErrMatchedA},
+		{"v=spf1 +a:OOO-%{O}-OOO", Pass, ErrMatchedA},
+		{"v=spf1 +a:ppp-%{p}-ppp", Pass, ErrMatchedA},
+		{"v=spf1 +a:vvv-%{v}-vvv", Pass, ErrMatchedA},
+		{"v=spf1 a:%{x}", PermError, ErrInvalidMacro},
+		{"v=spf1 +a:ooo-%{o7}-ooo", Pass, ErrMatchedA},
+		{"v=spf1 exists:%{ir}.vvv -all", Pass, ErrMatchedExists},
 	}
 
 	dns.Ip["sss-user@domain-sss"] = []net.IP{ip6666}
@@ -386,12 +386,12 @@ func TestMacrosV4(t *testing.T) {
 		res Result
 		err error
 	}{
-		{"v=spf1 +a:sr-%{sr}-sr", Pass, errMatchedA},
-		{"v=spf1 +a:sra-%{sr.}-sra", Pass, errMatchedA},
-		{"v=spf1 +a:o7-%{o7}-o7", Pass, errMatchedA},
-		{"v=spf1 +a:o1-%{o1}-o1", Pass, errMatchedA},
-		{"v=spf1 +a:o1r-%{o1r}-o1r", Pass, errMatchedA},
-		{"v=spf1 +a:vvv-%{v}-vvv", Pass, errMatchedA},
+		{"v=spf1 +a:sr-%{sr}-sr", Pass, ErrMatchedA},
+		{"v=spf1 +a:sra-%{sr.}-sra", Pass, ErrMatchedA},
+		{"v=spf1 +a:o7-%{o7}-o7", Pass, ErrMatchedA},
+		{"v=spf1 +a:o1-%{o1}-o1", Pass, ErrMatchedA},
+		{"v=spf1 +a:o1r-%{o1r}-o1r", Pass, ErrMatchedA},
+		{"v=spf1 +a:vvv-%{v}-vvv", Pass, ErrMatchedA},
 	}
 
 	dns.Ip["sr-com.user@domain-sr"] = []net.IP{ip1111}
@@ -466,9 +466,9 @@ func TestInvalidMacro(t *testing.T) {
 		}
 
 		out, err := r.expandMacros(macro, "sender.com")
-		if out != "" || err != errInvalidMacro {
+		if out != "" || err != ErrInvalidMacro {
 			t.Errorf(`[%s]:expected ""/%v, got %q/%v`,
-				macro, errInvalidMacro, out, err)
+				macro, ErrInvalidMacro, out, err)
 		}
 	}
 }
@@ -514,7 +514,7 @@ func TestOverrideLookupLimit(t *testing.T) {
 	// Set the limit to 3, which is not enough.
 	res, err = CheckHostWithSender(ip1111, "helo", "user@domain1",
 		OverrideLookupLimit(3))
-	if res != PermError || err != errLookupLimitReached {
+	if res != PermError || err != ErrLookupLimitReached {
 		t.Errorf("expected permerror/lookup limit reached, got %q / %q",
 			res, err)
 	}

@@ -28,6 +28,7 @@ package spf // import "blitiri.com.ar/go/spf"
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/url"
@@ -78,23 +79,31 @@ var qualToResult = map[byte]Result{
 	'?': Neutral,
 }
 
+// Errors returned by the library. Note that the errors returned in different
+// situations may change over time, and new ones may be added. Be careful
+// about over-relying on these.
 var (
-	errLookupLimitReached = fmt.Errorf("lookup limit reached")
-	errUnknownField       = fmt.Errorf("unknown field")
-	errInvalidIP          = fmt.Errorf("invalid ipX value")
-	errInvalidMask        = fmt.Errorf("invalid mask")
-	errInvalidMacro       = fmt.Errorf("invalid macro")
-	errInvalidDomain      = fmt.Errorf("invalid domain")
-	errNoResult           = fmt.Errorf("no DNS record found")
-	errMultipleRecords    = fmt.Errorf("multiple matching DNS records")
-	errTooManyMXRecords   = fmt.Errorf("too many MX records")
+	// Errors related to an invalid SPF record.
+	ErrUnknownField  = errors.New("unknown field")
+	ErrInvalidIP     = errors.New("invalid ipX value")
+	ErrInvalidMask   = errors.New("invalid mask")
+	ErrInvalidMacro  = errors.New("invalid macro")
+	ErrInvalidDomain = errors.New("invalid domain")
 
-	errMatchedAll    = fmt.Errorf("matched 'all'")
-	errMatchedA      = fmt.Errorf("matched 'a'")
-	errMatchedIP     = fmt.Errorf("matched 'ip'")
-	errMatchedMX     = fmt.Errorf("matched 'mx'")
-	errMatchedPTR    = fmt.Errorf("matched 'ptr'")
-	errMatchedExists = fmt.Errorf("matched 'exists'")
+	// Errors related to DNS lookups.
+	// Note that the library functions may also return net.DNSError.
+	ErrNoResult           = errors.New("no DNS record found")
+	ErrLookupLimitReached = errors.New("lookup limit reached")
+	ErrTooManyMXRecords   = errors.New("too many MX records")
+	ErrMultipleRecords    = errors.New("multiple matching DNS records")
+
+	// Errors returned on a successful match.
+	ErrMatchedAll    = errors.New("matched all")
+	ErrMatchedA      = errors.New("matched a")
+	ErrMatchedIP     = errors.New("matched ip")
+	ErrMatchedMX     = errors.New("matched mx")
+	ErrMatchedPTR    = errors.New("matched ptr")
+	ErrMatchedExists = errors.New("matched exists")
 )
 
 // Default value for the maximum number of DNS lookups while resolving SPF.
@@ -276,7 +285,7 @@ func (r *resolution) Check(domain string) (Result, error) {
 			r.trace("dns temp error: %v", err)
 			return TempError, err
 		}
-		if err == errMultipleRecords {
+		if err == ErrMultipleRecords {
 			r.trace("multiple dns records")
 			return PermError, err
 		}
@@ -290,7 +299,7 @@ func (r *resolution) Check(domain string) (Result, error) {
 	if txt == "" {
 		// No record => None.
 		// https://tools.ietf.org/html/rfc7208#section-4.5
-		return None, errNoResult
+		return None, ErrNoResult
 	}
 
 	fields := strings.Split(txt, " ")
@@ -308,7 +317,7 @@ func (r *resolution) Check(domain string) (Result, error) {
 	if len(redirects) > 1 {
 		// At most a single redirect is allowed.
 		// https://tools.ietf.org/html/rfc7208#section-6
-		return PermError, errInvalidDomain
+		return PermError, ErrInvalidDomain
 	}
 	fields = append(newfields, redirects...)
 
@@ -328,7 +337,7 @@ func (r *resolution) Check(domain string) (Result, error) {
 		// https://tools.ietf.org/html/rfc7208#section-4.6.4
 		if r.count > r.maxcount {
 			r.trace("lookup limit reached")
-			return PermError, errLookupLimitReached
+			return PermError, ErrLookupLimitReached
 		}
 
 		// See if we have a qualifier, defaulting to + (pass).
@@ -347,7 +356,7 @@ func (r *resolution) Check(domain string) (Result, error) {
 		if lfield == "all" {
 			// https://tools.ietf.org/html/rfc7208#section-5.1
 			r.trace("%v matched all", result)
-			return result, errMatchedAll
+			return result, ErrMatchedAll
 		} else if strings.HasPrefix(lfield, "include:") {
 			if ok, res, err := r.includeField(result, field, domain); ok {
 				r.trace("include ok, %v %v", res, err)
@@ -387,7 +396,7 @@ func (r *resolution) Check(domain string) (Result, error) {
 		} else {
 			// http://www.openspf.org/SPF_Record_Syntax
 			r.trace("permerror, unknown field")
-			return PermError, errUnknownField
+			return PermError, ErrUnknownField
 		}
 	}
 
@@ -434,7 +443,7 @@ func (r *resolution) getDNSRecord(domain string) (string, error) {
 	} else if l == 1 {
 		return records[0], nil
 	}
-	return "", errMultipleRecords
+	return "", ErrMultipleRecords
 }
 
 func isTemporary(err error) bool {
@@ -448,18 +457,18 @@ func (r *resolution) ipField(res Result, field string) (bool, Result, error) {
 	if strings.Contains(fip, "/") {
 		_, ipnet, err := net.ParseCIDR(fip)
 		if err != nil {
-			return true, PermError, errInvalidMask
+			return true, PermError, ErrInvalidMask
 		}
 		if ipnet.Contains(r.ip) {
-			return true, res, errMatchedIP
+			return true, res, ErrMatchedIP
 		}
 	} else {
 		ip := net.ParseIP(fip)
 		if ip == nil {
-			return true, PermError, errInvalidIP
+			return true, PermError, ErrInvalidIP
 		}
 		if ip.Equal(r.ip) {
-			return true, res, errMatchedIP
+			return true, res, ErrMatchedIP
 		}
 	}
 
@@ -476,11 +485,11 @@ func (r *resolution) ptrField(res Result, field, domain string) (bool, Result, e
 	}
 	ptrDomain, err := r.expandMacros(ptrDomain, domain)
 	if err != nil {
-		return true, PermError, errInvalidMacro
+		return true, PermError, ErrInvalidMacro
 	}
 
 	if ptrDomain == "" {
-		return true, PermError, errInvalidDomain
+		return true, PermError, ErrInvalidDomain
 	}
 
 	if r.ipNames == nil {
@@ -499,7 +508,7 @@ func (r *resolution) ptrField(res Result, field, domain string) (bool, Result, e
 			// have some A/AAAA.
 			// https://tools.ietf.org/html/rfc7208#section-5.5
 			if r.count > 10 {
-				return false, "", errLookupLimitReached
+				return false, "", ErrLookupLimitReached
 			}
 			r.count++
 			addrs, err := r.resolver.LookupIPAddr(r.ctx, n)
@@ -520,7 +529,7 @@ func (r *resolution) ptrField(res Result, field, domain string) (bool, Result, e
 	ptrDomain = strings.ToLower(ptrDomain)
 	for _, n := range r.ipNames {
 		if strings.HasSuffix(n, ptrDomain+".") {
-			return true, res, errMatchedPTR
+			return true, res, ErrMatchedPTR
 		}
 	}
 
@@ -534,11 +543,11 @@ func (r *resolution) existsField(res Result, field, domain string) (bool, Result
 	eDomain := field[7:]
 	eDomain, err := r.expandMacros(eDomain, domain)
 	if err != nil {
-		return true, PermError, errInvalidMacro
+		return true, PermError, ErrInvalidMacro
 	}
 
 	if eDomain == "" {
-		return true, PermError, errInvalidDomain
+		return true, PermError, ErrInvalidDomain
 	}
 
 	r.count++
@@ -554,7 +563,7 @@ func (r *resolution) existsField(res Result, field, domain string) (bool, Result
 	// Exists only counts if there are IPv4 matches.
 	for _, ip := range ips {
 		if ip.IP.To4() != nil {
-			return true, res, errMatchedExists
+			return true, res, ErrMatchedExists
 		}
 	}
 	return false, "", nil
@@ -566,7 +575,7 @@ func (r *resolution) includeField(res Result, field, domain string) (bool, Resul
 	incdomain := field[len("include:"):]
 	incdomain, err := r.expandMacros(incdomain, domain)
 	if err != nil {
-		return true, PermError, errInvalidMacro
+		return true, PermError, ErrInvalidMacro
 	}
 	ir, err := r.Check(incdomain)
 	switch ir {
@@ -582,7 +591,7 @@ func (r *resolution) includeField(res Result, field, domain string) (bool, Resul
 		return true, PermError, err
 	}
 
-	return false, "", fmt.Errorf("This should never be reached")
+	return false, "", fmt.Errorf("this should never be reached")
 }
 
 type dualMasks struct {
@@ -620,7 +629,7 @@ func domainAndMask(re *regexp.Regexp, field, domain string) (string, dualMasks, 
 			i, err := strconv.Atoi(groups[4])
 			mask4 := net.CIDRMask(i, 32)
 			if err != nil || mask4 == nil {
-				return "", masks, errInvalidMask
+				return "", masks, ErrInvalidMask
 			}
 			masks.v4 = mask4
 		}
@@ -628,7 +637,7 @@ func domainAndMask(re *regexp.Regexp, field, domain string) (string, dualMasks, 
 			i, err := strconv.Atoi(groups[6])
 			mask6 := net.CIDRMask(i, 128)
 			if err != nil || mask6 == nil {
-				return "", masks, errInvalidMask
+				return "", masks, ErrInvalidMask
 			}
 			masks.v6 = mask6
 		}
@@ -637,7 +646,7 @@ func domainAndMask(re *regexp.Regexp, field, domain string) (string, dualMasks, 
 	// Test to catch malformed entries: if there's a /, there must be at least
 	// one mask.
 	if strings.Contains(field, "/") && masks.v4 == nil && masks.v6 == nil {
-		return "", masks, errInvalidMask
+		return "", masks, ErrInvalidMask
 	}
 
 	return domain, masks, nil
@@ -653,7 +662,7 @@ func (r *resolution) aField(res Result, field, domain string) (bool, Result, err
 	}
 	aDomain, err = r.expandMacros(aDomain, domain)
 	if err != nil {
-		return true, PermError, errInvalidMacro
+		return true, PermError, ErrInvalidMacro
 	}
 
 	r.count++
@@ -668,7 +677,7 @@ func (r *resolution) aField(res Result, field, domain string) (bool, Result, err
 	for _, ip := range ips {
 		if ipMatch(r.ip, ip.IP, masks) {
 			r.trace("a matched %v, %v, %v", r.ip, ip.IP, masks)
-			return true, res, errMatchedA
+			return true, res, ErrMatchedA
 		}
 	}
 
@@ -685,7 +694,7 @@ func (r *resolution) mxField(res Result, field, domain string) (bool, Result, er
 	}
 	mxDomain, err = r.expandMacros(mxDomain, domain)
 	if err != nil {
-		return true, PermError, errInvalidMacro
+		return true, PermError, ErrInvalidMacro
 	}
 
 	r.count++
@@ -701,7 +710,7 @@ func (r *resolution) mxField(res Result, field, domain string) (bool, Result, er
 	// There's an explicit maximum of 10 MX records per match.
 	// https://tools.ietf.org/html/rfc7208#section-4.6.4
 	if len(mxs) > 10 {
-		return true, PermError, errTooManyMXRecords
+		return true, PermError, ErrTooManyMXRecords
 	}
 
 	mxips := []net.IP{}
@@ -722,7 +731,7 @@ func (r *resolution) mxField(res Result, field, domain string) (bool, Result, er
 	for _, ip := range mxips {
 		if ipMatch(r.ip, ip, masks) {
 			r.trace("mx matched %v, %v, %v", r.ip, ip, masks)
-			return true, res, errMatchedMX
+			return true, res, ErrMatchedMX
 		}
 	}
 
@@ -734,11 +743,11 @@ func (r *resolution) redirectField(field, domain string) (Result, error) {
 	rDomain := field[len("redirect="):]
 	rDomain, err := r.expandMacros(rDomain, domain)
 	if err != nil {
-		return PermError, errInvalidMacro
+		return PermError, ErrInvalidMacro
 	}
 
 	if rDomain == "" {
-		return PermError, errInvalidDomain
+		return PermError, ErrInvalidDomain
 	}
 
 	// https://tools.ietf.org/html/rfc7208#section-6.1
@@ -764,7 +773,7 @@ func (r *resolution) expandMacros(s, domain string) (string, error) {
 	// doesn't, prevent them from sneaking through.
 	if strings.Contains(s, "/") {
 		r.trace("macro contains /")
-		return "", errInvalidDomain
+		return "", ErrInvalidDomain
 	}
 
 	// Bypass the complex logic if there are no macros present.
@@ -800,7 +809,7 @@ func (r *resolution) expandMacros(s, domain string) (string, error) {
 				inMacroDefinition = true
 				continue
 			}
-			return "", errInvalidMacro
+			return "", ErrInvalidMacro
 		}
 		if inMacroDefinition {
 			if c != '}' {
@@ -815,7 +824,7 @@ func (r *resolution) expandMacros(s, domain string) (string, error) {
 			r.trace("macro %q: %q", macroS, groups)
 			macroS = ""
 			if groups == nil {
-				return "", errInvalidMacro
+				return "", ErrInvalidMacro
 			}
 			letter := groups[1]
 
@@ -825,7 +834,7 @@ func (r *resolution) expandMacros(s, domain string) (string, error) {
 				// valid.
 				digits, err = strconv.Atoi(groups[2])
 				if err != nil || digits <= 0 {
-					return "", errInvalidMacro
+					return "", ErrInvalidMacro
 				}
 			}
 			reverse := groups[3] == "r" || groups[3] == "R"
@@ -867,7 +876,7 @@ func (r *resolution) expandMacros(s, domain string) (string, error) {
 			default:
 				// c, r, t are allowed in exp only, and we don't expand macros
 				// in exp so they are just as invalid as the rest.
-				return "", errInvalidMacro
+				return "", ErrInvalidMacro
 			}
 
 			// Split str using the given separators.
