@@ -82,7 +82,7 @@ func (r Record) String() string {
 	if r.SERVFAIL {
 		return "SERVFAIL"
 	}
-	return fmt.Sprintf("<empty>")
+	return "<empty>"
 }
 
 // String slice with a custom yaml unmarshaller, because the yaml parser can't
