@@ -347,6 +347,7 @@ func TestMacros(t *testing.T) {
 		{"v=spf1 +a:ooo-%{o}-ooo", Pass, ErrMatchedA},
 		{"v=spf1 +a:OOO-%{O}-OOO", Pass, ErrMatchedA},
 		{"v=spf1 +a:ppp-%{p}-ppp", Pass, ErrMatchedA},
+		{"v=spf1 +a:hhh-%{h}-hhh", Pass, ErrMatchedA},
 		{"v=spf1 +a:vvv-%{v}-vvv", Pass, ErrMatchedA},
 		{"v=spf1 a:%{x}", PermError, ErrInvalidMacro},
 		{"v=spf1 +a:ooo-%{o7}-ooo", Pass, ErrMatchedA},
@@ -357,6 +358,7 @@ func TestMacros(t *testing.T) {
 	dns.Ip["ooo-domain-ooo"] = []net.IP{ip6666}
 	dns.Ip["ppp-unknown-ppp"] = []net.IP{ip6666}
 	dns.Ip["vvv-ip6-vvv"] = []net.IP{ip6666}
+	dns.Ip["hhh-helo-hhh"] = []net.IP{ip6666}
 	dns.Ip["8.6.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.8.b.d.0.1.0.0.2.vvv"] = []net.IP{ip1111}
 
 	for _, c := range cases {

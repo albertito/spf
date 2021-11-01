@@ -114,3 +114,19 @@ zonedata:
     - SPF: v=spf1 exists:lalala.com ~all
   lalala.com:
     - SERVFAIL: true
+---
+description: Resolve H macros correctly
+tests:
+  resolve-h-macros:
+    description: |
+      Check that '%{h}' macros are correctly resolved to the HELO/EHLO and not
+      the sender domain.
+    mailfrom: "foo@domain.net"
+    helo: holahola
+    host: 1.2.3.4
+    result: pass
+zonedata:
+  domain.net:
+    - SPF: v=spf1 exists:%{h}.com ~all
+  holahola.com:
+    - A: 127.0.0.2

@@ -140,6 +140,7 @@ func CheckHost(ip net.IP, domain string) (Result, error) {
 	r := &resolution{
 		ip:       ip,
 		maxcount: defaultMaxLookups,
+		helo:     domain,
 		sender:   "@" + domain,
 		ctx:      context.TODO(),
 		resolver: defaultResolver,
@@ -169,6 +170,7 @@ func CheckHostWithSender(ip net.IP, helo, sender string, opts ...Option) (Result
 	r := &resolution{
 		ip:       ip,
 		maxcount: defaultMaxLookups,
+		helo:     helo,
 		sender:   sender,
 		ctx:      context.TODO(),
 		resolver: defaultResolver,
@@ -257,6 +259,7 @@ type resolution struct {
 	count    uint
 	maxcount uint
 
+	helo   string
 	sender string
 
 	// Result of doing a reverse lookup for ip (so we only do it once).
@@ -872,7 +875,7 @@ func (r *resolution) expandMacros(s, domain string) (string, error) {
 					str = "ip6"
 				}
 			case "h":
-				str = domain
+				str = r.helo
 			default:
 				// c, r, t are allowed in exp only, and we don't expand macros
 				// in exp so they are just as invalid as the rest.
