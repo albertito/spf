@@ -526,13 +526,19 @@ func TestOverrideVoidLookupLimit(t *testing.T) {
 	dns := NewDefaultResolver()
 	defaultTrace = t.Logf
 
+	nxDomainErr := &net.DNSError{
+		Err:         "no such domain",
+		IsTemporary: false,
+		IsNotFound:  true,
+	}
+
 	dns.Txt["domain1"] = []string{"v=spf1 exists:%{i}.one include:domain2"}
 	dns.Txt["domain2"] = []string{"v=spf1 exists:%{i}.two include:domain3"}
 	dns.Txt["domain3"] = []string{"v=spf1 exists:%{i}.three include:domain4"}
 	dns.Txt["domain4"] = []string{"v=spf1 +all"}
-	dns.Errors["1.1.1.1.one"] = fmt.Errorf("no such domain")
-	dns.Errors["1.1.1.1.two"] = fmt.Errorf("no such domain")
-	dns.Errors["1.1.1.1.three"] = fmt.Errorf("no such domain")
+	dns.Errors["1.1.1.1.one"] = nxDomainErr
+	dns.Errors["1.1.1.1.two"] = nxDomainErr
+	dns.Errors["1.1.1.1.three"] = nxDomainErr
 
 	// The default of 2
 	res, err := CheckHostWithSender(ip1111, "helo", "user@domain1")
