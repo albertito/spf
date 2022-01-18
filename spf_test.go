@@ -522,6 +522,46 @@ func TestOverrideLookupLimit(t *testing.T) {
 	}
 }
 
+func TestOverrideVoidLookupLimit(t *testing.T) {
+	dns := NewDefaultResolver()
+	defaultTrace = t.Logf
+
+	nxDomainErr := &net.DNSError{
+		Err:         "no such domain",
+		IsTemporary: false,
+		IsNotFound:  true,
+	}
+
+	dns.Txt["domain1"] = []string{"v=spf1 exists:%{i}.one include:domain2"}
+	dns.Txt["domain2"] = []string{"v=spf1 exists:%{i}.two include:domain3"}
+	dns.Txt["domain3"] = []string{"v=spf1 exists:%{i}.three include:domain4"}
+	dns.Txt["domain4"] = []string{"v=spf1 +all"}
+	dns.Errors["1.1.1.1.one"] = nxDomainErr
+	dns.Errors["1.1.1.1.two"] = nxDomainErr
+	dns.Errors["1.1.1.1.three"] = nxDomainErr
+
+	// The default of 2
+	res, err := CheckHostWithSender(ip1111, "helo", "user@domain1")
+	if res != PermError {
+		t.Errorf("expected permerror, got %q / %q", res, err)
+	}
+
+	// Set the limit to 10, which is excessive.
+	res, err = CheckHostWithSender(ip1111, "helo", "user@domain1",
+		OverrideVoidLookupLimit(10))
+	if res != Pass {
+		t.Errorf("expected pass, got %q / %q", res, err)
+	}
+
+	// Set the limit to 1, which is not enough.
+	res, err = CheckHostWithSender(ip1111, "helo", "user@domain1",
+		OverrideVoidLookupLimit(1))
+	if res != PermError || err != ErrVoidLookupLimitReached {
+		t.Errorf("expected permerror/void lookup limit reached, got %q / %q",
+			res, err)
+	}
+}
+
 func TestWithContext(t *testing.T) {
 	dns := NewDefaultResolver()
 	defaultTrace = t.Logf

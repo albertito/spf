@@ -92,10 +92,11 @@ var (
 
 	// Errors related to DNS lookups.
 	// Note that the library functions may also return net.DNSError.
-	ErrNoResult           = errors.New("no DNS record found")
-	ErrLookupLimitReached = errors.New("lookup limit reached")
-	ErrTooManyMXRecords   = errors.New("too many MX records")
-	ErrMultipleRecords    = errors.New("multiple matching DNS records")
+	ErrNoResult               = errors.New("no DNS record found")
+	ErrLookupLimitReached     = errors.New("lookup limit reached")
+	ErrVoidLookupLimitReached = errors.New("void lookup limit reached")
+	ErrTooManyMXRecords       = errors.New("too many MX records")
+	ErrMultipleRecords        = errors.New("multiple matching DNS records")
 
 	// Errors returned on a successful match.
 	ErrMatchedAll    = errors.New("matched all")
@@ -106,10 +107,18 @@ var (
 	ErrMatchedExists = errors.New("matched exists")
 )
 
-// Default value for the maximum number of DNS lookups while resolving SPF.
-// RFC is quite clear 10 must be the maximum allowed.
-// https://tools.ietf.org/html/rfc7208#section-4.6.4
-const defaultMaxLookups = 10
+const (
+	// Default value for the maximum number of DNS lookups while resolving SPF.
+	// RFC is quite clear 10 must be the maximum allowed.
+	// https://tools.ietf.org/html/rfc7208#section-4.6.4
+	defaultMaxLookups = 10
+
+	// Default value for the maximum number of DNS void lookups while
+	// resolving SPF.  RFC suggests that implementations SHOULD limit these
+	// with a configurable default of 2.
+	// https://tools.ietf.org/html/rfc7208#section-4.6.4
+	defaultMaxVoidLookups = 2
+)
 
 // TraceFunc is the type of tracing functions.
 type TraceFunc func(f string, a ...interface{})
@@ -138,13 +147,14 @@ type Option func(*resolution)
 // Deprecated: use CheckHostWithSender instead.
 func CheckHost(ip net.IP, domain string) (Result, error) {
 	r := &resolution{
-		ip:       ip,
-		maxcount: defaultMaxLookups,
-		helo:     domain,
-		sender:   "@" + domain,
-		ctx:      context.TODO(),
-		resolver: defaultResolver,
-		trace:    defaultTrace,
+		ip:           ip,
+		maxcount:     defaultMaxLookups,
+		maxvoidcount: defaultMaxVoidLookups,
+		helo:         domain,
+		sender:       "@" + domain,
+		ctx:          context.TODO(),
+		resolver:     defaultResolver,
+		trace:        defaultTrace,
 	}
 	return r.Check(domain)
 }
@@ -168,13 +178,14 @@ func CheckHostWithSender(ip net.IP, helo, sender string, opts ...Option) (Result
 	}
 
 	r := &resolution{
-		ip:       ip,
-		maxcount: defaultMaxLookups,
-		helo:     helo,
-		sender:   sender,
-		ctx:      context.TODO(),
-		resolver: defaultResolver,
-		trace:    defaultTrace,
+		ip:           ip,
+		maxcount:     defaultMaxLookups,
+		maxvoidcount: defaultMaxVoidLookups,
+		helo:         helo,
+		sender:       sender,
+		ctx:          context.TODO(),
+		resolver:     defaultResolver,
+		trace:        defaultTrace,
 	}
 
 	for _, opt := range opts {
@@ -193,6 +204,18 @@ func CheckHostWithSender(ip net.IP, helo, sender string, opts ...Option) (Result
 func OverrideLookupLimit(limit uint) Option {
 	return func(r *resolution) {
 		r.maxcount = limit
+	}
+}
+
+// OverrideVoidLookupLimit overrides the maximum number of void DNS lookups allowed
+// during SPF evaluation. A void DNS lookup is one that returns an empty
+// answer, or a NXDOMAIN.  Note that as per RFC, the default value of 2 SHOULD
+// be used. Please use with care.
+//
+// This is EXPERIMENTAL for now, and the API is subject to change.
+func OverrideVoidLookupLimit(limit uint) Option {
+	return func(r *resolution) {
+		r.maxvoidcount = limit
 	}
 }
 
@@ -255,9 +278,11 @@ func split(addr string) (string, string) {
 }
 
 type resolution struct {
-	ip       net.IP
-	count    uint
-	maxcount uint
+	ip           net.IP
+	count        uint
+	maxcount     uint
+	voidcount    uint
+	maxvoidcount uint
 
 	helo   string
 	sender string
@@ -281,7 +306,7 @@ var ptrField = regexp.MustCompile(`^(ptr$|ptr:)`)
 
 func (r *resolution) Check(domain string) (Result, error) {
 	r.count++
-	r.trace("check %q %d", domain, r.count)
+	r.trace("check %q %d %d", domain, r.count, r.voidcount)
 	txt, err := r.getDNSRecord(domain)
 	if err != nil {
 		if isTemporary(err) {
@@ -341,6 +366,11 @@ func (r *resolution) Check(domain string) (Result, error) {
 		if r.count > r.maxcount {
 			r.trace("lookup limit reached")
 			return PermError, ErrLookupLimitReached
+		}
+
+		if r.voidcount > r.maxvoidcount {
+			r.trace("void lookup limit reached")
+			return PermError, ErrVoidLookupLimitReached
 		}
 
 		// See if we have a qualifier, defaulting to + (pass).
@@ -454,6 +484,26 @@ func isTemporary(err error) bool {
 	return ok && derr.Temporary()
 }
 
+// Check if the given DNS error is a "void lookup" (0 answers, or nxdomain),
+// and if so increment the void lookup counter.
+func (r *resolution) checkVoidLookup(nanswers int, err error) {
+	if err == nil && nanswers == 0 {
+		r.voidcount++
+		r.trace("void lookup: no answers")
+		return
+	}
+
+	derr, ok := err.(*net.DNSError)
+	if !ok {
+		return
+	}
+
+	if derr.IsNotFound {
+		r.voidcount++
+		r.trace("void lookup: nxdomain")
+	}
+}
+
 // ipField processes an "ip" field.
 func (r *resolution) ipField(res Result, field string) (bool, Result, error) {
 	fip := field[4:]
@@ -499,6 +549,7 @@ func (r *resolution) ptrField(res Result, field, domain string) (bool, Result, e
 		r.ipNames = []string{}
 		r.count++
 		ns, err := r.resolver.LookupAddr(r.ctx, r.ip.String())
+		r.checkVoidLookup(len(ns), err)
 		if err != nil {
 			// https://tools.ietf.org/html/rfc7208#section-5
 			if isTemporary(err) {
@@ -555,6 +606,7 @@ func (r *resolution) existsField(res Result, field, domain string) (bool, Result
 
 	r.count++
 	ips, err := r.resolver.LookupIPAddr(r.ctx, eDomain)
+	r.checkVoidLookup(len(ips), err)
 	if err != nil {
 		// https://tools.ietf.org/html/rfc7208#section-5
 		if isTemporary(err) {
@@ -670,6 +722,7 @@ func (r *resolution) aField(res Result, field, domain string) (bool, Result, err
 
 	r.count++
 	ips, err := r.resolver.LookupIPAddr(r.ctx, aDomain)
+	r.checkVoidLookup(len(ips), err)
 	if err != nil {
 		// https://tools.ietf.org/html/rfc7208#section-5
 		if isTemporary(err) {
@@ -702,6 +755,7 @@ func (r *resolution) mxField(res Result, field, domain string) (bool, Result, er
 
 	r.count++
 	mxs, err := r.resolver.LookupMX(r.ctx, mxDomain)
+	r.checkVoidLookup(len(mxs), err)
 	if err != nil {
 		// https://tools.ietf.org/html/rfc7208#section-5
 		if isTemporary(err) {
