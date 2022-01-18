@@ -107,11 +107,14 @@ var (
 	ErrMatchedExists = errors.New("matched exists")
 )
 
-// Default value for the maximum number of DNS lookups while resolving SPF.
-// RFC is quite clear 10 must be the maximum allowed.
-// https://tools.ietf.org/html/rfc7208#section-4.6.4
 const (
-	defaultMaxLookups     = 10
+	// Default value for the maximum number of DNS lookups while resolving SPF.
+	// RFC is quite clear 10 must be the maximum allowed.
+	// https://tools.ietf.org/html/rfc7208#section-4.6.4
+	defaultMaxLookups = 10
+	// Default value for the maximum number of DNS void lookups while resolving SPF.
+	// RFC suggests that implementations SHOULD limit these with a configurable default of 2.
+	// https://tools.ietf.org/html/rfc7208#section-4.6.4
 	defaultMaxVoidLookups = 2
 )
 
@@ -202,11 +205,9 @@ func OverrideLookupLimit(limit uint) Option {
 	}
 }
 
-// OverrideVoidLookupLimit overrides the maximum number of void lookups allowed
-// during SPF evaluation. Note the RFC, SPF implementations SHOULD limit
-// "void lookups" to two.  An implementation MAY choose to make such a
-// limit configurable.  In this case, a default of two is RECOMMENDED.
-// Exceeding the limit produces a "permerror" result.
+// OverrideVoidLookupLimit overrides the maximum number of void DNS lookups allowed
+// during SPF evaluation. A void DNS lookup is one that returns an empty answer, or a "name error".
+// Note that as per RFC, the default value of 2 SHOULD be used. Please use with care.
 //
 // This is EXPERIMENTAL for now, and the API is subject to change.
 func OverrideVoidLookupLimit(limit uint) Option {
