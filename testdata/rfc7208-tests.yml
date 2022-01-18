@@ -2553,7 +2553,6 @@ tests:
     host: 1.2.3.4
     mailfrom: foo@e11.example.com
     result: permerror
-    skip: We don't limit this separately from the total 10 limit.
 zonedata:
   mail.example.com:
     - A: 1.2.3.4
