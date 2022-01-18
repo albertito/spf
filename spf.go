@@ -481,6 +481,24 @@ func isTemporary(err error) bool {
 	return ok && derr.Temporary()
 }
 
+// Check if the given DNS error is a "void lookup" (0 answers, or nxdomain),
+// and if so increment the void lookup counter.
+func (r *resolution) checkVoidLookup(nanswers int, err error) {
+	if err == nil && nanswers == 0 {
+		r.voidcount++
+		return
+	}
+
+	derr, ok := err.(*net.DNSError)
+	if !ok {
+		return
+	}
+
+	if derr.IsNotFound {
+		r.voidcount++
+	}
+}
+
 // ipField processes an "ip" field.
 func (r *resolution) ipField(res Result, field string) (bool, Result, error) {
 	fip := field[4:]
@@ -526,6 +544,7 @@ func (r *resolution) ptrField(res Result, field, domain string) (bool, Result, e
 		r.ipNames = []string{}
 		r.count++
 		ns, err := r.resolver.LookupAddr(r.ctx, r.ip.String())
+		r.checkVoidLookup(len(ns), err)
 		if err != nil {
 			// https://tools.ietf.org/html/rfc7208#section-5
 			if isTemporary(err) {
@@ -582,9 +601,8 @@ func (r *resolution) existsField(res Result, field, domain string) (bool, Result
 
 	r.count++
 	ips, err := r.resolver.LookupIPAddr(r.ctx, eDomain)
+	r.checkVoidLookup(len(ips), err)
 	if err != nil {
-		// https://tools.ietf.org/html/rfc7208#section-4.6.4
-		r.voidcount++
 		// https://tools.ietf.org/html/rfc7208#section-5
 		if isTemporary(err) {
 			return true, TempError, err
@@ -699,6 +717,7 @@ func (r *resolution) aField(res Result, field, domain string) (bool, Result, err
 
 	r.count++
 	ips, err := r.resolver.LookupIPAddr(r.ctx, aDomain)
+	r.checkVoidLookup(len(ips), err)
 	if err != nil {
 		// https://tools.ietf.org/html/rfc7208#section-5
 		if isTemporary(err) {
@@ -731,6 +750,7 @@ func (r *resolution) mxField(res Result, field, domain string) (bool, Result, er
 
 	r.count++
 	mxs, err := r.resolver.LookupMX(r.ctx, mxDomain)
+	r.checkVoidLookup(len(mxs), err)
 	if err != nil {
 		// https://tools.ietf.org/html/rfc7208#section-5
 		if isTemporary(err) {
