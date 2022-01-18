@@ -92,10 +92,11 @@ var (
 
 	// Errors related to DNS lookups.
 	// Note that the library functions may also return net.DNSError.
-	ErrNoResult           = errors.New("no DNS record found")
-	ErrLookupLimitReached = errors.New("lookup limit reached")
-	ErrTooManyMXRecords   = errors.New("too many MX records")
-	ErrMultipleRecords    = errors.New("multiple matching DNS records")
+	ErrNoResult               = errors.New("no DNS record found")
+	ErrLookupLimitReached     = errors.New("lookup limit reached")
+	ErrVoidLookupLimitReached = errors.New("void lookup limit reached")
+	ErrTooManyMXRecords       = errors.New("too many MX records")
+	ErrMultipleRecords        = errors.New("multiple matching DNS records")
 
 	// Errors returned on a successful match.
 	ErrMatchedAll    = errors.New("matched all")
@@ -109,7 +110,10 @@ var (
 // Default value for the maximum number of DNS lookups while resolving SPF.
 // RFC is quite clear 10 must be the maximum allowed.
 // https://tools.ietf.org/html/rfc7208#section-4.6.4
-const defaultMaxLookups = 10
+const (
+	defaultMaxLookups     = 10
+	defaultMaxVoidLookups = 2
+)
 
 // TraceFunc is the type of tracing functions.
 type TraceFunc func(f string, a ...interface{})
@@ -138,13 +142,14 @@ type Option func(*resolution)
 // Deprecated: use CheckHostWithSender instead.
 func CheckHost(ip net.IP, domain string) (Result, error) {
 	r := &resolution{
-		ip:       ip,
-		maxcount: defaultMaxLookups,
-		helo:     domain,
-		sender:   "@" + domain,
-		ctx:      context.TODO(),
-		resolver: defaultResolver,
-		trace:    defaultTrace,
+		ip:           ip,
+		maxcount:     defaultMaxLookups,
+		maxvoidcount: defaultMaxVoidLookups,
+		helo:         domain,
+		sender:       "@" + domain,
+		ctx:          context.TODO(),
+		resolver:     defaultResolver,
+		trace:        defaultTrace,
 	}
 	return r.Check(domain)
 }
@@ -168,13 +173,14 @@ func CheckHostWithSender(ip net.IP, helo, sender string, opts ...Option) (Result
 	}
 
 	r := &resolution{
-		ip:       ip,
-		maxcount: defaultMaxLookups,
-		helo:     helo,
-		sender:   sender,
-		ctx:      context.TODO(),
-		resolver: defaultResolver,
-		trace:    defaultTrace,
+		ip:           ip,
+		maxcount:     defaultMaxLookups,
+		maxvoidcount: defaultMaxVoidLookups,
+		helo:         helo,
+		sender:       sender,
+		ctx:          context.TODO(),
+		resolver:     defaultResolver,
+		trace:        defaultTrace,
 	}
 
 	for _, opt := range opts {
@@ -193,6 +199,19 @@ func CheckHostWithSender(ip net.IP, helo, sender string, opts ...Option) (Result
 func OverrideLookupLimit(limit uint) Option {
 	return func(r *resolution) {
 		r.maxcount = limit
+	}
+}
+
+// OverrideVoidLookupLimit overrides the maximum number of void lookups allowed
+// during SPF evaluation. Note the RFC, SPF implementations SHOULD limit
+// "void lookups" to two.  An implementation MAY choose to make such a
+// limit configurable.  In this case, a default of two is RECOMMENDED.
+// Exceeding the limit produces a "permerror" result.
+//
+// This is EXPERIMENTAL for now, and the API is subject to change.
+func OverrideVoidLookupLimit(limit uint) Option {
+	return func(r *resolution) {
+		r.maxvoidcount = limit
 	}
 }
 
@@ -255,9 +274,11 @@ func split(addr string) (string, string) {
 }
 
 type resolution struct {
-	ip       net.IP
-	count    uint
-	maxcount uint
+	ip           net.IP
+	count        uint
+	maxcount     uint
+	voidcount    uint
+	maxvoidcount uint
 
 	helo   string
 	sender string
@@ -281,7 +302,7 @@ var ptrField = regexp.MustCompile(`^(ptr$|ptr:)`)
 
 func (r *resolution) Check(domain string) (Result, error) {
 	r.count++
-	r.trace("check %q %d", domain, r.count)
+	r.trace("check %q %d %d", domain, r.count, r.voidcount)
 	txt, err := r.getDNSRecord(domain)
 	if err != nil {
 		if isTemporary(err) {
@@ -341,6 +362,11 @@ func (r *resolution) Check(domain string) (Result, error) {
 		if r.count > r.maxcount {
 			r.trace("lookup limit reached")
 			return PermError, ErrLookupLimitReached
+		}
+
+		if r.voidcount > r.maxvoidcount {
+			r.trace("void lookup limit reached")
+			return PermError, ErrVoidLookupLimitReached
 		}
 
 		// See if we have a qualifier, defaulting to + (pass).
@@ -556,6 +582,8 @@ func (r *resolution) existsField(res Result, field, domain string) (bool, Result
 	r.count++
 	ips, err := r.resolver.LookupIPAddr(r.ctx, eDomain)
 	if err != nil {
+		// https://tools.ietf.org/html/rfc7208#section-4.6.4
+		r.voidcount++
 		// https://tools.ietf.org/html/rfc7208#section-5
 		if isTemporary(err) {
 			return true, TempError, err
