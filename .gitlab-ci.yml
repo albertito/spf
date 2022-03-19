@@ -20,6 +20,6 @@ coverage:
   image: golang:latest
   script:
     - go test -covermode=count -coverprofile=coverage.out
-    - go get github.com/mattn/goveralls
+    - go install github.com/mattn/goveralls@latest
     - goveralls -coverprofile=coverage.out -service=gitlab -repotoken=$COVERALLS_TOKEN
 
