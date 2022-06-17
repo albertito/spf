@@ -1,4 +1,5 @@
-# Simple tests, used for debugging the testing infrastructure.
+# Simple tests, used for debugging the testing infrastructure; and some
+# additional tests for situations not covered by the other files.
 
 ---
 description: Simple successes
@@ -130,3 +131,50 @@ zonedata:
     - SPF: v=spf1 exists:%{h}.com ~all
   holahola.com:
     - A: 127.0.0.2
+---
+description: Only include the first 10 PTR results
+tests:
+  only-first-10-ptr:
+    description: |
+      Check that if during 'ptr' forward resolution we only consider the first
+      10 names, and ignore the rest.
+    mailfrom: "foo@domain.net"
+    host: 1.2.3.4
+    result: softfail
+zonedata:
+  domain.net:
+    - A: 127.0.0.1
+    - SPF: v=spf1 ptr ~all
+  4.3.2.1.in-addr.arpa:
+    - PTR: dom01.com
+    - PTR: dom02.com
+    - PTR: dom03.com
+    - PTR: dom04.com
+    - PTR: dom05.com
+    - PTR: dom06.com
+    - PTR: dom07.com
+    - PTR: dom08.com
+    - PTR: dom09.com
+    - PTR: dom10.com
+    # Entries below here should get dropped. They would make it pass.
+    - PTR: domain.net
+  dom01.com:
+    - A: 127.0.0.1
+  dom02.com:
+    - A: 127.0.0.2
+  dom03.com:
+    - A: 127.0.0.3
+  dom04.com:
+    - A: 127.0.0.4
+  dom05.com:
+    - A: 127.0.0.5
+  dom06.com:
+    - A: 127.0.0.6
+  dom07.com:
+    - A: 127.0.0.7
+  dom08.com:
+    - A: 127.0.0.8
+  dom09.com:
+    - A: 127.0.0.9
+  dom10.com:
+    - A: 127.0.0.10

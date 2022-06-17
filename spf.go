@@ -557,14 +557,19 @@ func (r *resolution) ptrField(res Result, field, domain string) (bool, Result, e
 			}
 			return false, "", err
 		}
+
+		// Only take the first 10 names, ignore the rest.
+		// Each A/AAAA lookup in this context is NOT included in the overall
+		// count. The RFC defines this separate logic and limits.
+		// https://datatracker.ietf.org/doc/html/rfc7208#section-4.6.4
+		if len(ns) > 10 {
+			r.trace("ptr names trimmed %d down to 10", len(ns))
+			ns = ns[:10]
+		}
+
 		for _, n := range ns {
 			// Validate the record by doing a forward resolution: it has to
 			// have some A/AAAA.
-			// https://tools.ietf.org/html/rfc7208#section-5.5
-			if r.count > 10 {
-				return false, "", ErrLookupLimitReached
-			}
-			r.count++
 			addrs, err := r.resolver.LookupIPAddr(r.ctx, n)
 			if err != nil {
 				// RFC explicitly says to skip domains which error here.
