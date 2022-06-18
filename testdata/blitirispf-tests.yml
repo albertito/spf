@@ -225,3 +225,35 @@ zonedata:
     - SPF: v=spf1 -all
   d25:
     - SPF: v=spf1 all
+---
+description: MX resolution limits
+tests:
+  mx-resolution-10-terms:
+    description: |
+      Check that a resolution with 10 "mx" terms works, because it's within
+      the limit. Each term will resolve to multiple records, but those
+      shouldn't be individually counted (there's a limit of 10 MX records per
+      MX lookup, but that's tested separately).
+    mailfrom: "foo@mx10"
+    host: 1.2.3.4
+    result: pass
+  mx-resolution-11-terms:
+    description: |
+      Check that a resolution with 11 "mx" terms, causes a permerror due to
+      exceeding lookup limits.
+    mailfrom: "foo@mx11"
+    host: 1.2.3.4
+    result: permerror
+zonedata:
+  mx10:
+    - SPF: v=spf1 mx:domain mx:domain mx:domain mx:domain mx:domain
+                  mx:domain mx:domain mx:domain mx:domain mx:domain
+                  all
+  mx11:
+    - SPF: v=spf1 mx:domain mx:domain mx:domain mx:domain mx:domain
+                  mx:domain mx:domain mx:domain mx:domain mx:domain
+                  mx:domain all
+  domain:
+    - MX: [1, blah1]
+    - MX: [2, blah2]
+    - MX: [3, blah3]

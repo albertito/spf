@@ -777,7 +777,6 @@ func (r *resolution) mxField(res Result, field, domain string) (bool, Result, er
 
 	mxips := []net.IP{}
 	for _, mx := range mxs {
-		r.count++
 		ips, err := r.resolver.LookupIPAddr(r.ctx, mx.Host)
 		if err != nil {
 			// https://tools.ietf.org/html/rfc7208#section-5
