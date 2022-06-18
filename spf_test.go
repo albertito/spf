@@ -500,22 +500,22 @@ func TestOverrideLookupLimit(t *testing.T) {
 	dns.Txt["domain3"] = []string{"v=spf1 include:domain4"}
 	dns.Txt["domain4"] = []string{"v=spf1 +all"}
 
-	// The default of 10 should be enough.
+	// The default of 10 should be plenty enough.
 	res, err := CheckHostWithSender(ip1111, "helo", "user@domain1")
 	if res != Pass {
 		t.Errorf("expected pass, got %q / %q", res, err)
 	}
 
-	// Set the limit to 4, which is enough.
+	// Set the limit to 3, which is just enough.
 	res, err = CheckHostWithSender(ip1111, "helo", "user@domain1",
-		OverrideLookupLimit(4))
+		OverrideLookupLimit(3))
 	if res != Pass {
 		t.Errorf("expected pass, got %q / %q", res, err)
 	}
 
-	// Set the limit to 3, which is not enough.
+	// Set the limit to 2, which is not enough.
 	res, err = CheckHostWithSender(ip1111, "helo", "user@domain1",
-		OverrideLookupLimit(3))
+		OverrideLookupLimit(2))
 	if res != PermError || err != ErrLookupLimitReached {
 		t.Errorf("expected permerror/lookup limit reached, got %q / %q",
 			res, err)

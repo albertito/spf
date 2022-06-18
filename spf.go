@@ -305,7 +305,6 @@ var mxField = regexp.MustCompile(`^(mx$|mx:|mx/)`)
 var ptrField = regexp.MustCompile(`^(ptr$|ptr:)`)
 
 func (r *resolution) Check(domain string) (Result, error) {
-	r.count++
 	r.trace("check %q %d %d", domain, r.count, r.voidcount)
 	txt, err := r.getDNSRecord(domain)
 	if err != nil {
@@ -637,6 +636,7 @@ func (r *resolution) includeField(res Result, field, domain string) (bool, Resul
 	if err != nil {
 		return true, PermError, ErrInvalidMacro
 	}
+	r.count++
 	ir, err := r.Check(incdomain)
 	switch ir {
 	case Pass:
@@ -813,6 +813,7 @@ func (r *resolution) redirectField(field, domain string) (Result, error) {
 	}
 
 	// https://tools.ietf.org/html/rfc7208#section-6.1
+	r.count++
 	result, err := r.Check(rDomain)
 	if result == None {
 		result = PermError

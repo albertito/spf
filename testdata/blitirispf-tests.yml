@@ -178,3 +178,50 @@ zonedata:
     - A: 127.0.0.9
   dom10.com:
     - A: 127.0.0.10
+---
+description: Resolution limits
+tests:
+  resolution-with-10-lookups:
+    description: |
+      Check that a resolution with precisely 10 lookups (the default limit)
+      works fine.
+    mailfrom: "foo@okay.com"
+    host: 1.2.3.4
+    result: pass
+  resolution-with-11-lookups:
+    description: |
+      Check that a resolution with precisely 11 lookups (over default limit)
+      fails as expected.
+    mailfrom: "foo@bad.com"
+    host: 1.2.3.4
+    result: permerror
+zonedata:
+  okay.com:
+    - SPF: v=spf1 include:d11 include:d12 include:d13
+                  include:d14 include:d15 -all
+  bad.com:
+    - SPF: v=spf1 include:d00
+                  include:d11 include:d12 include:d13
+                  include:d14 include:d15 -all
+  d00:
+    - SPF: v=spf1 -all
+  d11:
+    - SPF: v=spf1 include:d21 ~all
+  d12:
+    - SPF: v=spf1 include:d22 ~all
+  d13:
+    - SPF: v=spf1 include:d23 ~all
+  d14:
+    - SPF: v=spf1 include:d24 ~all
+  d15:
+    - SPF: v=spf1 include:d25 ~all
+  d21:
+    - SPF: v=spf1 -all
+  d22:
+    - SPF: v=spf1 -all
+  d23:
+    - SPF: v=spf1 -all
+  d24:
+    - SPF: v=spf1 -all
+  d25:
+    - SPF: v=spf1 all
