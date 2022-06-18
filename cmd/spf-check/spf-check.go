@@ -1,3 +1,4 @@
+//go:build ignore
 // +build ignore
 
 // Command line tool to perform SPF checks.

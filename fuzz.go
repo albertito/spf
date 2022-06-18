@@ -6,6 +6,7 @@
 //   go-fuzz -bin=./spf-fuzz.zip -workdir=testdata/fuzz
 //
 
+//go:build gofuzz
 // +build gofuzz
 
 package spf
