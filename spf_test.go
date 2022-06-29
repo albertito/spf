@@ -671,3 +671,25 @@ func TestWithTraceFunc(t *testing.T) {
 		t.Errorf("expected >0 trace function calls, got 0")
 	}
 }
+
+func TestOctetSizeLimit(t *testing.T) {
+	dns := NewDefaultResolver()
+	dns.Txt["domain"] = []string{"v=spf1 ip4:192.168.168.0/24 ip4:192.168.169.0/24 ip4:192.168.170.0/24 ip4:192.168.171.0/24 ip4:192.168.172.0/24 ip4:192.168.173.0/24 ip4:192.168.174.0/24 ip4:192.168.175.0/24 ip4:192.168.176.0/24 ip4:192.168.177.0/24 ip4:192.168.178.0/24 ip4:192.168.179.0/24 ip4:192.168.180.0/24 ip4:192.168.181.0/24 ip4:192.168.182.0/24 ip4:192.168.183.0/24 ip4:192.168.184.0/24 ip4:192.168.185.0/24 ip4:192.168.186.0/24 ip4:192.168.187.0/24 ip4:192.168.188.0/24 ip4:192.168.189.0/24 ip4:192.168.190.0/24 ~all"}
+	defaultTrace = t.Logf
+
+	res, err := CheckHost(ip1111, "domain")
+	if res != PermError && err != ErrOctetLimitReached {
+		t.Errorf("expected permerror, got %v (%v)", res, err)
+	}
+}
+
+func TestOverrideOctetSizeLimit(t *testing.T) {
+	dns := NewDefaultResolver()
+	dns.Txt["domain"] = []string{"v=spf1 ip4:1.1.1.1 ip4:192.168.169.0/24 ip4:192.168.170.0/24 ip4:192.168.171.0/24 ip4:192.168.172.0/24 ip4:192.168.173.0/24 ip4:192.168.174.0/24 ip4:192.168.175.0/24 ip4:192.168.176.0/24 ip4:192.168.177.0/24 ip4:192.168.178.0/24 ip4:192.168.179.0/24 ip4:192.168.180.0/24 ip4:192.168.181.0/24 ip4:192.168.182.0/24 ip4:192.168.183.0/24 ip4:192.168.184.0/24 ip4:192.168.185.0/24 ip4:192.168.186.0/24 ip4:192.168.187.0/24 ip4:192.168.188.0/24 ip4:192.168.189.0/24 ip4:192.168.190.0/24 ~all"}
+	defaultTrace = t.Logf
+
+	res, err := CheckHostWithSender(ip1111, "helo", "user@domain", OverrideOctetLimit(500))
+	if res != Pass {
+		t.Errorf("expected permerror, got %v (%v)", res, err)
+	}
+}
