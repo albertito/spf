@@ -260,6 +260,13 @@ zonedata:
 ---
 description: NXDOMAIN tests
 tests:
+  one-mx-not-found:
+    description: |
+      Check that if one of the MXs is not found, we continue evaluating the
+      rest.
+    mailfrom: "foo@d00"
+    host: 1.2.3.4
+    result: pass
   all-mx-not-found:
     description: |
       Check that if none of the MXs is not found, we continue evaluating the
@@ -289,6 +296,10 @@ tests:
     host: 1.2.3.4
     result: permerror
 zonedata:
+  d00:
+    - SPF: v=spf1 mx -all
+    - MX: [10, "doesnotexist"]
+    - MX: [20, "sender"]
   d01:
     - SPF: v=spf1 mx ip4:1.2.3.4 -all
     - MX: [10, "doesnotexist"]

@@ -483,6 +483,11 @@ func isTemporary(err error) bool {
 	return ok && derr.Temporary()
 }
 
+func isNotFound(err error) bool {
+	derr, ok := err.(*net.DNSError)
+	return ok && derr.IsNotFound
+}
+
 // Check if the given DNS error is a "void lookup" (0 answers, or nxdomain),
 // and if so increment the void lookup counter.
 func (r *resolution) checkVoidLookup(nanswers int, err error) {
@@ -779,7 +784,11 @@ func (r *resolution) mxField(res Result, field, domain string) (bool, Result, er
 	for _, mx := range mxs {
 		ips, err := r.resolver.LookupIPAddr(r.ctx, mx.Host)
 		if err != nil {
+			// If the address of the MX record was not found, we just skip it.
 			// https://tools.ietf.org/html/rfc7208#section-5
+			if isNotFound(err) {
+				continue
+			}
 			if isTemporary(err) {
 				return true, TempError, err
 			}
@@ -789,6 +798,7 @@ func (r *resolution) mxField(res Result, field, domain string) (bool, Result, er
 			mxips = append(mxips, ipaddr.IP)
 		}
 	}
+
 	for _, ip := range mxips {
 		if ipMatch(r.ip, ip, masks) {
 			r.trace("mx matched %v, %v, %v", r.ip, ip, masks)
