@@ -779,7 +779,11 @@ func (r *resolution) mxField(res Result, field, domain string) (bool, Result, er
 	for _, mx := range mxs {
 		ips, err := r.resolver.LookupIPAddr(r.ctx, mx.Host)
 		if err != nil {
+			// If the address of the MX record was not found, we just skip it.
 			// https://tools.ietf.org/html/rfc7208#section-5
+			if dErr, ok := err.(*net.DNSError); ok && dErr.IsNotFound {
+				continue
+			}
 			if isTemporary(err) {
 				return true, TempError, err
 			}
@@ -789,6 +793,7 @@ func (r *resolution) mxField(res Result, field, domain string) (bool, Result, er
 			mxips = append(mxips, ipaddr.IP)
 		}
 	}
+
 	for _, ip := range mxips {
 		if ipMatch(r.ip, ip, masks) {
 			r.trace("mx matched %v, %v, %v", r.ip, ip, masks)

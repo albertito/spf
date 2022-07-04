@@ -78,11 +78,24 @@ func TestBasic(t *testing.T) {
 		{"v=spf1 blah", PermError, ErrUnknownField},
 		{"v=spf1 exists:d1111 -all", Pass, ErrMatchedExists},
 		{"v=spf1 redirect=", PermError, ErrInvalidDomain},
+		{"v=spf1 mx:d1112 -all", Pass, ErrMatchedMX},
+		{"v=spf1 mx:d1113 ip4:1.1.1.1 -all", Pass, ErrMatchedIP},
 	}
+
+	dnsError := &net.DNSError{
+		Err:        "temporary error for testing",
+		IsNotFound: true,
+	}
+
+	// Domain "notfounderr" will fail resolution with an error.
+	dns.Errors["notfounderr"] = dnsError
 
 	dns.Ip["d1111"] = []net.IP{ip1111}
 	dns.Ip["d1110"] = []net.IP{ip1110}
 	dns.Mx["d1110"] = []*net.MX{mx("d1110", 5), mx("nothing", 10)}
+	dns.Mx["d1112"] = []*net.MX{mx("notfounderr", 5), mx("d1111", 10)}
+	dns.Mx["d1113"] = []*net.MX{mx("notfounderr", 5), mx("notfounderr", 10)}
+
 	dns.Addr["1.1.1.1"] = []string{"lalala.", "xx.domain.", "d1111."}
 	dns.Ip["lalala"] = []net.IP{ip1111}
 	dns.Ip["xx.domain"] = []net.IP{ip1111}
