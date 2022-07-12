@@ -95,7 +95,7 @@ var (
 	ErrNoResult               = errors.New("no DNS record found")
 	ErrLookupLimitReached     = errors.New("lookup limit reached")
 	ErrVoidLookupLimitReached = errors.New("void lookup limit reached")
-	ErrOctetLimitReached      = errors.New("response size exceeds 450 octets")
+	ErrRecordTooLong          = errors.New("DNS record is too long")
 	ErrTooManyMXRecords       = errors.New("too many MX records")
 	ErrMultipleRecords        = errors.New("multiple matching DNS records")
 
@@ -123,7 +123,7 @@ const (
 	// Default value for maximum octet size of the SPF response. The
 	// RFC suggests the limit should be 450.
 	// https://tools.ietf.org/html/rfc7208#section-3.4
-	defaultMaxResponseOctets = 450
+	defaultMaxRecordLength = 450
 )
 
 // TraceFunc is the type of tracing functions.
@@ -153,15 +153,15 @@ type Option func(*resolution)
 // Deprecated: use CheckHostWithSender instead.
 func CheckHost(ip net.IP, domain string) (Result, error) {
 	r := &resolution{
-		ip:                ip,
-		maxcount:          defaultMaxLookups,
-		maxvoidcount:      defaultMaxVoidLookups,
-		maxresponseoctets: defaultMaxResponseOctets,
-		helo:              domain,
-		sender:            "@" + domain,
-		ctx:               context.TODO(),
-		resolver:          defaultResolver,
-		trace:             defaultTrace,
+		ip:              ip,
+		maxcount:        defaultMaxLookups,
+		maxvoidcount:    defaultMaxVoidLookups,
+		maxresponsesize: defaultMaxRecordLength,
+		helo:            domain,
+		sender:          "@" + domain,
+		ctx:             context.TODO(),
+		resolver:        defaultResolver,
+		trace:           defaultTrace,
 	}
 	return r.Check(domain)
 }
@@ -185,15 +185,15 @@ func CheckHostWithSender(ip net.IP, helo, sender string, opts ...Option) (Result
 	}
 
 	r := &resolution{
-		ip:                ip,
-		maxcount:          defaultMaxLookups,
-		maxvoidcount:      defaultMaxVoidLookups,
-		maxresponseoctets: defaultMaxResponseOctets,
-		helo:              helo,
-		sender:            sender,
-		ctx:               context.TODO(),
-		resolver:          defaultResolver,
-		trace:             defaultTrace,
+		ip:              ip,
+		maxcount:        defaultMaxLookups,
+		maxvoidcount:    defaultMaxVoidLookups,
+		maxresponsesize: defaultMaxRecordLength,
+		helo:            helo,
+		sender:          sender,
+		ctx:             context.TODO(),
+		resolver:        defaultResolver,
+		trace:           defaultTrace,
 	}
 
 	for _, opt := range opts {
@@ -235,7 +235,7 @@ func OverrideVoidLookupLimit(limit uint) Option {
 // This is EXPERIMENTAL for now, and the API is subject to change.
 func OverrideOctetLimit(limit int) Option {
 	return func(r *resolution) {
-		r.maxresponseoctets = limit
+		r.maxresponsesize = limit
 	}
 }
 
@@ -297,12 +297,12 @@ func split(addr string) (string, string) {
 }
 
 type resolution struct {
-	ip                net.IP
-	count             uint
-	maxcount          uint
-	voidcount         uint
-	maxvoidcount      uint
-	maxresponseoctets int
+	ip              net.IP
+	count           uint
+	maxcount        uint
+	voidcount       uint
+	maxvoidcount    uint
+	maxresponsesize int
 
 	helo   string
 	sender string
@@ -349,11 +349,11 @@ func (r *resolution) Check(domain string) (Result, error) {
 		return None, ErrNoResult
 	}
 
-	if len(txt) > r.maxresponseoctets {
+	if len(txt) > r.maxresponsesize {
 		// SPF response greater than 450 octets
 		// https://tools.ietf.org/html/rfc7208#section-3.4
-		r.trace("dns perm error: %s response size %d", ErrOctetLimitReached, len(txt))
-		return PermError, ErrOctetLimitReached
+		r.trace("dns perm error: %s response size %d", ErrRecordTooLong, len(txt))
+		return PermError, ErrRecordTooLong
 	}
 
 	fields := strings.Split(txt, " ")

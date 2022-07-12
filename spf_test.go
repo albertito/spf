@@ -678,7 +678,7 @@ func TestOctetSizeLimit(t *testing.T) {
 	defaultTrace = t.Logf
 
 	res, err := CheckHost(ip1111, "domain")
-	if res != PermError && err != ErrOctetLimitReached {
+	if res != PermError && err != ErrRecordTooLong {
 		t.Errorf("expected permerror, got %v (%v)", res, err)
 	}
 }
