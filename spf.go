@@ -790,7 +790,7 @@ func (r *resolution) mxField(res Result, field, domain string) (bool, Result, er
 		if err != nil {
 			// If the address of the MX record was not found, we just skip it.
 			// https://tools.ietf.org/html/rfc7208#section-5
-			if dnsErr, ok := err.(*net.DNSError); ok && dnsErr.IsNotFound {
+			if dErr, ok := err.(*net.DNSError); ok && dErr.IsNotFound {
 				continue
 			}
 			if isTemporary(err) {
