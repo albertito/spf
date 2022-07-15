@@ -80,6 +80,8 @@ func TestBasic(t *testing.T) {
 		{"v=spf1 redirect=", PermError, ErrInvalidDomain},
 		{"v=spf1 mx:d1112 -all", Pass, ErrMatchedMX},
 		{"v=spf1 mx:d1113 ip4:1.1.1.1 -all", Pass, ErrMatchedIP},
+		{"v=spf1 include:notfounderr ip4:1.1.1.1 -all", Pass, ErrMatchedIP},
+		{"v=spf1 exists:notfounderr ip4:1.1.1.1 -all", Pass, ErrMatchedIP},
 	}
 
 	dnsError := &net.DNSError{
@@ -214,6 +216,32 @@ func TestRedirect(t *testing.T) {
 	defaultTrace = t.Logf
 
 	res, err := CheckHost(ip1111, "domain")
+	if res != Pass {
+		t.Errorf("expected pass, got %v (%v)", res, err)
+	}
+}
+
+func TestRedirectDNSTempError(t *testing.T) {
+	dns := NewDefaultResolver()
+
+	dnsError := &net.DNSError{
+		Err:        "temporary error for testing",
+		IsNotFound: true,
+	}
+
+	// Domain "notfounderr" will fail resolution with an error.
+	dns.Errors["notfounderr"] = dnsError
+
+	dns.Txt["domain"] = []string{"v=spf1 redirect=notfounderr"}
+	defaultTrace = t.Logf
+
+	res, err := CheckHost(ip1111, "domain")
+	if res != Fail {
+		t.Errorf("expected fail, got %v (%v)", res, err)
+	}
+
+	dns.Txt["domain"] = []string{"v=spf1 redirect=notfounderr ip4:1.1.1.1 -all"}
+	res, err = CheckHost(ip1111, "domain")
 	if res != Pass {
 		t.Errorf("expected pass, got %v (%v)", res, err)
 	}

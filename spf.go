@@ -308,6 +308,14 @@ func (r *resolution) Check(domain string) (Result, error) {
 	r.trace("check %q %d %d", domain, r.count, r.voidcount)
 	txt, err := r.getDNSRecord(domain)
 	if err != nil {
+		if r.count > 0 {
+			// If the address of an include/redirect was not found, we just skip it
+			// https://tools.ietf.org/html/rfc7208#section-5
+			if dErr, ok := err.(*net.DNSError); ok && dErr.IsNotFound {
+				r.trace("skipping domain %s dns error: %v", domain, err)
+				return Fail, err
+			}
+		}
 		if isTemporary(err) {
 			r.trace("dns temp error: %v", err)
 			return TempError, err
