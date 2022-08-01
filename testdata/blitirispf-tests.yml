@@ -257,3 +257,45 @@ zonedata:
     - MX: [1, blah1]
     - MX: [2, blah2]
     - MX: [3, blah3]
+---
+description: NXDOMAIN tests
+tests:
+  all-mx-not-found:
+    description: |
+      Check that if none of the MXs is not found, we continue evaluating the
+      rest of the terms.
+    mailfrom: "foo@d01"
+    host: 1.2.3.4
+    result: pass
+  domain-not-found:
+    description: |
+      Check if the top-level domain is not found (which is different that it
+      existing but having no TXT record).
+    mailfrom: "foo@doesnotexist"
+    host: 1.2.3.4
+    result: none
+  include-not-found:
+    description: |
+      For include, if the recursive check returns None, it should make the
+      evaluation return PermError.
+    mailfrom: "foo@d02"
+    host: 1.2.3.4
+    result: permerror
+  redirect-not-found:
+    description: |
+      For redirect, if the recursive check returns None, it should make the
+      evaluation return PermError.
+    mailfrom: "foo@d03"
+    host: 1.2.3.4
+    result: permerror
+zonedata:
+  d01:
+    - SPF: v=spf1 mx ip4:1.2.3.4 -all
+    - MX: [10, "doesnotexist"]
+    - MX: [20, "doesnotexist"]
+  d02:
+    - SPF: v=spf1 include:doesnotexist all
+  d03:
+    - SPF: v=spf1 redirect=doesnotexist
+  sender:
+    - A: 1.2.3.4
