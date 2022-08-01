@@ -2,7 +2,6 @@ package spf
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"testing"
 
@@ -249,7 +248,10 @@ func TestNoRecord(t *testing.T) {
 	dns := NewDefaultResolver()
 	dns.Txt["d1"] = []string{""}
 	dns.Txt["d2"] = []string{"loco", "v=spf2"}
-	dns.Errors["nospf"] = fmt.Errorf("no such domain")
+	dns.Errors["nospf"] = &net.DNSError{
+		Err:        "record not found for testing",
+		IsNotFound: true,
+	}
 	defaultTrace = t.Logf
 
 	for _, domain := range []string{"d1", "d2", "d3", "nospf"} {
@@ -582,8 +584,8 @@ func TestWithContext(t *testing.T) {
 	cancelF()
 	res, err = CheckHostWithSender(ip1111, "helo", "user@domain1",
 		WithContext(ctx))
-	if res != None || err != context.Canceled {
-		t.Errorf("expected none/context cancelled, got %q / %q", res, err)
+	if res != PermError || err != context.Canceled {
+		t.Errorf("expected permerror/context cancelled, got %q / %q", res, err)
 	}
 }
 

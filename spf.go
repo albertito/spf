@@ -308,6 +308,12 @@ func (r *resolution) Check(domain string) (Result, error) {
 	r.trace("check %q %d %d", domain, r.count, r.voidcount)
 	txt, err := r.getDNSRecord(domain)
 	if err != nil {
+		if isNotFound(err) {
+			// NXDOMAIN -> None.
+			// https://datatracker.ietf.org/doc/html/rfc7208#section-4.3
+			r.trace("dns domain not found: %v", err)
+			return None, ErrNoResult
+		}
 		if isTemporary(err) {
 			r.trace("dns temp error: %v", err)
 			return TempError, err
@@ -316,10 +322,10 @@ func (r *resolution) Check(domain string) (Result, error) {
 			r.trace("multiple dns records")
 			return PermError, err
 		}
-		// Could not resolve the name, it may be missing the record.
-		// https://tools.ietf.org/html/rfc7208#section-2.6.1
+		// Got another, permanent error.
+		// https://datatracker.ietf.org/doc/html/rfc7208#section-2.6.7
 		r.trace("dns perm error: %v", err)
-		return None, err
+		return PermError, err
 	}
 	r.trace("dns record %q", txt)
 
