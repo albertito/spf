@@ -2394,7 +2394,6 @@ tests:
     host: 1.2.3.4
     mailfrom: foo@e6.example.com
     result: pass
-    skip: This is a legitimate fail because we don't do caching.
   mech-over-limit:
     description: >-
       SPF implementations MUST limit the number of mechanisms and modifiers
