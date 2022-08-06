@@ -56,11 +56,11 @@ var (
 	Pass = Result("pass")
 
 	// https://tools.ietf.org/html/rfc7208#section-8.4
-	// Client is *not* authorized to use the domain
+	// Client is *not* authorized to use the domain.
 	Fail = Result("fail")
 
 	// https://tools.ietf.org/html/rfc7208#section-8.5
-	// Not authorized, but unwilling to make a strong policy statement/
+	// Not authorized, but unwilling to make a strong policy statement.
 	SoftFail = Result("softfail")
 
 	// https://tools.ietf.org/html/rfc7208#section-8.6
@@ -337,7 +337,7 @@ func (r *resolution) Check(domain string) (Result, error) {
 
 	fields := strings.Split(txt, " ")
 
-	// redirects must be handled after the rest; instead of having two loops,
+	// Redirects must be handled after the rest; instead of having two loops,
 	// we just move them to the end.
 	var newfields, redirects []string
 	for _, field := range fields {
@@ -432,7 +432,6 @@ func (r *resolution) Check(domain string) (Result, error) {
 			r.trace("redirect, %q", field)
 			return r.redirectField(field, domain)
 		} else {
-			// http://www.openspf.org/SPF_Record_Syntax
 			r.trace("permerror, unknown field")
 			return PermError, ErrUnknownField
 		}
