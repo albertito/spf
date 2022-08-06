@@ -8,9 +8,7 @@
 #
 # Contributors:
 #   Stuart D Gathman    90% of the tests
-#   Julian Mehnle       proofread YAML syntax, spelling, formal schema
-# Informal contributors (suggestions but no code):
-#   Craig Whitmore
+#   Julian Mehnle       some tests, proofread YAML syntax, formal schema
 #   Frank Ellermann
 #   Scott Kitterman
 #   Wayne Schlitt
