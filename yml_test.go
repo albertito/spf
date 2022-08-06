@@ -43,15 +43,18 @@ type Test struct {
 
 // Only one of these will be set.
 type Record struct {
-	A        stringSlice `yaml:"A"`
-	AAAA     stringSlice `yaml:"AAAA"`
-	MX       *MX         `yaml:"MX"`
-	SPF      stringSlice `yaml:"SPF"`
-	TXT      stringSlice `yaml:"TXT"`
-	PTR      stringSlice `yaml:"PTR"`
-	CNAME    stringSlice `yaml:"CNAME"`
-	TIMEOUT  bool        `yaml:"TIMEOUT"`
-	SERVFAIL bool        `yaml:"SERVFAIL"`
+	A     stringSlice `yaml:"A"`
+	AAAA  stringSlice `yaml:"AAAA"`
+	MX    *MX         `yaml:"MX"`
+	SPF   stringSlice `yaml:"SPF"`
+	TXT   stringSlice `yaml:"TXT"`
+	PTR   stringSlice `yaml:"PTR"`
+	CNAME string      `yaml:"CNAME"`
+
+	// Errors.
+	TIMEOUT   bool `yaml:"TIMEOUT"`
+	SERVFAIL  bool `yaml:"SERVFAIL"`
+	CNAMELOOP bool `yaml:"CNAMELOOP"`
 }
 
 func (r Record) String() string {
@@ -73,7 +76,7 @@ func (r Record) String() string {
 	if len(r.PTR) > 0 {
 		return fmt.Sprintf("PTR: %v", r.PTR)
 	}
-	if len(r.CNAME) > 0 {
+	if r.CNAME != "" {
 		return fmt.Sprintf("CNAME: %v", r.CNAME)
 	}
 	if r.TIMEOUT {
@@ -81,6 +84,9 @@ func (r Record) String() string {
 	}
 	if r.SERVFAIL {
 		return "SERVFAIL"
+	}
+	if r.CNAMELOOP {
+		return "CNAMELOOP"
 	}
 	return "<empty>"
 }
@@ -176,6 +182,12 @@ func testRFC(t *testing.T, fname string) {
 					}
 					dns.Errors[domain] = err
 				}
+				if record.CNAMELOOP {
+					dns.Errors[domain] = &net.DNSError{
+						Err:         "CNAME loop detected",
+						IsTemporary: false,
+					}
+				}
 				for _, s := range record.A {
 					dns.Ip[domain] = append(dns.Ip[domain], net.ParseIP(s))
 				}
@@ -203,7 +215,9 @@ func testRFC(t *testing.T, fname string) {
 					ip := reverseDNS(t, domain).String()
 					dns.Addr[ip] = append(dns.Addr[ip], s)
 				}
-				// TODO: CNAME
+				if record.CNAME != "" {
+					dns.Cname[domain] = record.CNAME
+				}
 			}
 
 			// The test suite is not well done: some tests use SPF instead of

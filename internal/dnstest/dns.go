@@ -22,6 +22,7 @@ type TestResolver struct {
 	Mx     map[string][]*net.MX
 	Ip     map[string][]net.IP
 	Addr   map[string][]string
+	Cname  map[string]string
 	Errors map[string]error
 }
 
@@ -31,6 +32,7 @@ func NewResolver() *TestResolver {
 		Mx:     map[string][]*net.MX{},
 		Ip:     map[string][]net.IP{},
 		Addr:   map[string][]string{},
+		Cname:  map[string]string{},
 		Errors: map[string]error{},
 	}
 }
@@ -46,6 +48,9 @@ func (r *TestResolver) LookupTXT(ctx context.Context, domain string) (txts []str
 	}
 	domain = strings.ToLower(domain)
 	domain = strings.TrimRight(domain, ".")
+	if cname, ok := r.Cname[domain]; ok {
+		return r.LookupTXT(ctx, cname)
+	}
 	if _, ok := r.Txt[domain]; !ok && r.Errors[domain] == nil {
 		return nil, nxDomainErr
 	}
@@ -58,6 +63,9 @@ func (r *TestResolver) LookupMX(ctx context.Context, domain string) (mxs []*net.
 	}
 	domain = strings.ToLower(domain)
 	domain = strings.TrimRight(domain, ".")
+	if cname, ok := r.Cname[domain]; ok {
+		return r.LookupMX(ctx, cname)
+	}
 	if _, ok := r.Mx[domain]; !ok && r.Errors[domain] == nil {
 		return nil, nxDomainErr
 	}
@@ -70,6 +78,9 @@ func (r *TestResolver) LookupIPAddr(ctx context.Context, host string) (as []net.
 	}
 	host = strings.ToLower(host)
 	host = strings.TrimRight(host, ".")
+	if cname, ok := r.Cname[host]; ok {
+		return r.LookupIPAddr(ctx, cname)
+	}
 	if _, ok := r.Ip[host]; !ok && r.Errors[host] == nil {
 		return nil, nxDomainErr
 	}
@@ -90,6 +101,9 @@ func (r *TestResolver) LookupAddr(ctx context.Context, host string) (addrs []str
 	}
 	host = strings.ToLower(host)
 	host = strings.TrimRight(host, ".")
+	if cname, ok := r.Cname[host]; ok {
+		return r.LookupAddr(ctx, cname)
+	}
 	if _, ok := r.Addr[host]; !ok && r.Errors[host] == nil {
 		return nil, nxDomainErr
 	}

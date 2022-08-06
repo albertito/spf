@@ -731,7 +731,9 @@ zonedata:
   loop4.example.com:
     - CNAME: "CNAME.example.com."
   cname.example.com:
-    - CNAME: "CNAME.example.com."
+    # Our test resolver doesn't detect CNAME loops.
+    #- CNAME: "CNAME.example.com."
+    - CNAMELOOP: true
 
 ---
 description: A mechanism syntax

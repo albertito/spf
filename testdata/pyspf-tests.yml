@@ -171,7 +171,6 @@ tests:
     host: 1.2.3.4
     mailfrom: foo@e2.example.com
     result: pass
-    skip: Test runner doesn't handle CNAMEs yet.
   null-cname:
     comment: |
       pyspf was getting a type error for null CNAMEs
