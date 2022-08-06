@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 )
 
 var (
@@ -96,17 +96,17 @@ func (r Record) String() string {
 // https://github.com/go-yaml/yaml/issues/100
 type stringSlice []string
 
-func (sl *stringSlice) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (sl *stringSlice) UnmarshalYAML(value *yaml.Node) error {
 	// Try a slice first, and if it works, return it.
 	slice := []string{}
-	if err := unmarshal(&slice); err == nil {
+	if err := value.Decode(&slice); err == nil {
 		*sl = slice
 		return nil
 	}
 
 	// Get a single string, and append it.
 	single := ""
-	if err := unmarshal(&single); err != nil {
+	if err := value.Decode(&single); err != nil {
 		return err
 	}
 	*sl = []string{single}
@@ -121,9 +121,9 @@ type MX struct {
 	Host string
 }
 
-func (mx *MX) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (mx *MX) UnmarshalYAML(value *yaml.Node) error {
 	seq := []interface{}{}
-	if err := unmarshal(&seq); err != nil {
+	if err := value.Decode(&seq); err != nil {
 		return err
 	}
 
