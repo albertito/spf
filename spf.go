@@ -350,6 +350,7 @@ func (r *resolution) Check(domain string) (Result, error) {
 	if len(redirects) > 1 {
 		// At most a single redirect is allowed.
 		// https://tools.ietf.org/html/rfc7208#section-6
+		r.trace("too many redirects")
 		return PermError, ErrInvalidDomain
 	}
 	fields = append(newfields, redirects...)
@@ -393,46 +394,47 @@ func (r *resolution) Check(domain string) (Result, error) {
 
 		if lfield == "all" {
 			// https://tools.ietf.org/html/rfc7208#section-5.1
-			r.trace("%v matched all", result)
+			r.trace("all: %v", result)
 			return result, ErrMatchedAll
 		} else if strings.HasPrefix(lfield, "include:") {
 			if ok, res, err := r.includeField(result, field, domain); ok {
-				r.trace("include ok, %v %v", res, err)
+				r.trace("%q %v, %v", field, res, err)
 				return res, err
 			}
 		} else if aField.MatchString(lfield) {
 			if ok, res, err := r.aField(result, field, domain); ok {
-				r.trace("a ok, %v %v", res, err)
+				r.trace("%q %v, %v", field, res, err)
 				return res, err
 			}
 		} else if mxField.MatchString(lfield) {
 			if ok, res, err := r.mxField(result, field, domain); ok {
-				r.trace("mx ok, %v %v", res, err)
+				r.trace("%q %v, %v", field, res, err)
 				return res, err
 			}
 		} else if strings.HasPrefix(lfield, "ip4:") || strings.HasPrefix(lfield, "ip6:") {
 			if ok, res, err := r.ipField(result, field); ok {
-				r.trace("ip ok, %v %v", res, err)
+				r.trace("%q %v, %v", field, res, err)
 				return res, err
 			}
 		} else if ptrField.MatchString(lfield) {
 			if ok, res, err := r.ptrField(result, field, domain); ok {
-				r.trace("ptr ok, %v %v", res, err)
+				r.trace("%q %v, %v", field, res, err)
 				return res, err
 			}
 		} else if strings.HasPrefix(lfield, "exists:") {
 			if ok, res, err := r.existsField(result, field, domain); ok {
-				r.trace("exists ok, %v %v", res, err)
+				r.trace("%q %v, %v", field, res, err)
 				return res, err
 			}
 		} else if strings.HasPrefix(lfield, "exp=") {
-			r.trace("exp= not used, skipping")
+			r.trace("exp= ignored")
 			continue
 		} else if strings.HasPrefix(lfield, "redirect=") {
-			r.trace("redirect, %q", field)
-			return r.redirectField(field, domain)
+			res, err := r.redirectField(field, domain)
+			r.trace("%q: %v, %v", field, res, err)
+			return res, err
 		} else {
-			r.trace("permerror, unknown field")
+			r.trace("unknown field, permerror")
 			return PermError, ErrUnknownField
 		}
 	}
@@ -522,6 +524,7 @@ func (r *resolution) ipField(res Result, field string) (bool, Result, error) {
 			return true, PermError, ErrInvalidMask
 		}
 		if ipnet.Contains(r.ip) {
+			r.trace("ip match: %v contains %v", ipnet, r.ip)
 			return true, res, ErrMatchedIP
 		}
 	} else {
@@ -530,6 +533,7 @@ func (r *resolution) ipField(res Result, field string) (bool, Result, error) {
 			return true, PermError, ErrInvalidIP
 		}
 		if ip.Equal(r.ip) {
+			r.trace("ip match: %v", ip)
 			return true, res, ErrMatchedIP
 		}
 	}
@@ -597,6 +601,7 @@ func (r *resolution) ptrField(res Result, field, domain string) (bool, Result, e
 	ptrDomain = strings.ToLower(ptrDomain)
 	for _, n := range r.ipNames {
 		if strings.HasSuffix(n, ptrDomain+".") {
+			r.trace("ptr match: %q", n)
 			return true, res, ErrMatchedPTR
 		}
 	}
@@ -632,6 +637,7 @@ func (r *resolution) existsField(res Result, field, domain string) (bool, Result
 	// Exists only counts if there are IPv4 matches.
 	for _, ip := range ips {
 		if ip.IP.To4() != nil {
+			r.trace("exists match: %v", ip.IP)
 			return true, res, ErrMatchedExists
 		}
 	}
@@ -667,6 +673,18 @@ func (r *resolution) includeField(res Result, field, domain string) (bool, Resul
 type dualMasks struct {
 	v4 net.IPMask
 	v6 net.IPMask
+}
+
+func maskToStr(m net.IPMask) string {
+	ones, bits := m.Size()
+	if ones == 0 && bits == 0 {
+		return m.String()
+	}
+	return fmt.Sprintf("/%d", ones)
+}
+
+func (m dualMasks) String() string {
+	return fmt.Sprintf("[%v, %v]", maskToStr(m.v4), maskToStr(m.v6))
 }
 
 func ipMatch(ip, tomatch net.IP, masks dualMasks) bool {
@@ -747,7 +765,7 @@ func (r *resolution) aField(res Result, field, domain string) (bool, Result, err
 	}
 	for _, ip := range ips {
 		if ipMatch(r.ip, ip.IP, masks) {
-			r.trace("a matched %v, %v, %v", r.ip, ip.IP, masks)
+			r.trace("a match: %v, %v, %v", r.ip, ip.IP, masks)
 			return true, res, ErrMatchedA
 		}
 	}
@@ -804,9 +822,10 @@ func (r *resolution) mxField(res Result, field, domain string) (bool, Result, er
 		}
 	}
 
+	r.trace("mx ips: %v", mxips)
 	for _, ip := range mxips {
 		if ipMatch(r.ip, ip, masks) {
-			r.trace("mx matched %v, %v, %v", r.ip, ip, masks)
+			r.trace("mx match: %v, %v, %v", r.ip, ip, masks)
 			return true, res, ErrMatchedMX
 		}
 	}
