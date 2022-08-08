@@ -1,0 +1,2 @@
+go test fuzz v1
+string("v=spf1 ptr:fe.example.org ptr:sgp.example.com exp=_expspf.example.org -all\n")

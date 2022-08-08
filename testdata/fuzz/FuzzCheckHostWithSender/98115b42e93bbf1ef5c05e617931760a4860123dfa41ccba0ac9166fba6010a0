@@ -1,0 +1,2 @@
+go test fuzz v1
+string("v=spf1 mx:d6660/24/100 ~all\n")

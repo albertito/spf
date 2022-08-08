@@ -1,0 +1,2 @@
+go test fuzz v1
+string("v=spf1 -all exp=msg8.%{D2}\n")

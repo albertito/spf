@@ -1,1 +1,0 @@
-v=spf1 exists:%{p}.should.example.com exists:%{p}.ok.example.com

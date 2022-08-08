@@ -1,0 +1,2 @@
+go test fuzz v1
+string("v=spf1 redirect=e12.example.com -all redirect=e12.example.com\n")

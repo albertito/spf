@@ -1,0 +1,2 @@
+go test fuzz v1
+string("v=spf1 mx/26 exists:%{l}.%{d}.%{i}.spf.example.net -all\n")

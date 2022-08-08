@@ -1,1 +1,0 @@
-v=spf1 ip6:::1 ip6:e::0/4 include:domain

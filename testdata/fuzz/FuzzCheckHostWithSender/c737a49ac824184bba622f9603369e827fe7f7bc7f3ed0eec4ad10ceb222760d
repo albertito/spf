@@ -1,0 +1,2 @@
+go test fuzz v1
+string("v=spf1 exists:%{i}.%{l2r-}.user.%{d2}\n")

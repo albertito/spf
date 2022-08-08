@@ -1,0 +1,2 @@
+go test fuzz v1
+string("v=spf1 -exists:%(ir).sbl.example.com ?all\n")

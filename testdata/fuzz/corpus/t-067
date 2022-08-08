@@ -1,1 +1,0 @@
-v=spf1 a:erehwon.example.com a:foobar.com exp=nxdomain.com -all

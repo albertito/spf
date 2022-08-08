@@ -1,1 +1,0 @@
-v=spf1 exists:%{l2r-}%{d2}%{l2r-}%{d2}

@@ -1,0 +1,2 @@
+go test fuzz v1
+string("v=spf1 ip6:2001:db8::1/24 ~all")

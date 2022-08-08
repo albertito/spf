@@ -1,0 +1,2 @@
+go test fuzz v1
+string("v=spf1 ip6:CAFE:BABE:8000::/33\n")

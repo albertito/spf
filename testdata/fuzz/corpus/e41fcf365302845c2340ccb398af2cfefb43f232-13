@@ -1,1 +1,0 @@
-v=spf1 a:%{I}%{i}%{i}%{i}%{i}%{i}%{i} include:domain

@@ -1,1 +1,0 @@
-v=spf1 a:mx1.example.com mx:mx1.example.com ~all

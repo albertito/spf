@@ -1,0 +1,2 @@
+go test fuzz v1
+string("v=spf1 a:macro%%percent%_%_space%-url-space.example.com -all\n")
