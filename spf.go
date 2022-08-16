@@ -789,7 +789,13 @@ func (r *resolution) mxField(res Result, field, domain string) (bool, Result, er
 	r.count++
 	mxs, err := r.resolver.LookupMX(r.ctx, mxDomain)
 	r.checkVoidLookup(len(mxs), err)
-	if err != nil {
+
+	// If we get some results, use them even if we get an error alongisde.
+	// This happens when one of the records is invalid, because Go library can
+	// be quite strict about it. The RFC is not clear about this specific
+	// situation, and other SPF libraries and implementations just skip the
+	// invalid value, so we match common practice.
+	if err != nil && len(mxs) == 0 {
 		// https://tools.ietf.org/html/rfc7208#section-5
 		if isNotFound(err) {
 			return false, "", err

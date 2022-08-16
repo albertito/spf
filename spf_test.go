@@ -335,6 +335,28 @@ func TestDNSPermanentErrors(t *testing.T) {
 	}
 }
 
+func TestMXWithInvalidRecord(t *testing.T) {
+	dns := NewDefaultResolver()
+	dnsError := &net.DNSError{
+		Err:         "permanent error for testing",
+		IsTemporary: false,
+	}
+
+	// MX lookup on "dom2" will return an error and also some records.
+	// We expect the resolution to use the valid records, and ignore
+	// the error.
+	dns.Txt["domain"] = []string{"v=spf1 mx:dom2 -all"}
+	dns.Mx["dom2"] = []*net.MX{mx("oneoneoneone", 10)}
+	dns.Errors["dom2"] = dnsError
+	dns.Ip["oneoneoneone"] = []net.IP{ip1111}
+	defaultTrace = t.Logf
+
+	res, err := CheckHost(ip1111, "domain")
+	if res != Pass {
+		t.Errorf("expected pass, got %v (%v)", res, err)
+	}
+}
+
 func TestMacros(t *testing.T) {
 	dns := NewDefaultResolver()
 	defaultTrace = t.Logf
