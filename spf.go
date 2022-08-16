@@ -789,7 +789,7 @@ func (r *resolution) mxField(res Result, field, domain string) (bool, Result, er
 	r.count++
 	mxs, err := r.resolver.LookupMX(r.ctx, mxDomain)
 	r.checkVoidLookup(len(mxs), err)
-	if err != nil {
+	if err != nil && len(mxs) == 0 {
 		// https://tools.ietf.org/html/rfc7208#section-5
 		if isTemporary(err) {
 			return true, TempError, err
