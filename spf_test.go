@@ -303,21 +303,26 @@ func TestDNSPermanentErrors(t *testing.T) {
 		IsTemporary: false,
 	}
 
-	// Domain "tmperr" will fail resolution with a temporary error.
-	dns.Errors["tmperr"] = dnsError
+	// Domain "permerr" will fail resolution with a permanent error.
+	dns.Errors["permerr"] = dnsError
 	dns.Errors["1.1.1.1"] = dnsError
-	dns.Mx["tmpmx"] = []*net.MX{mx("tmperr", 10)}
+	dns.Mx["permmx"] = []*net.MX{mx("permerr", 10)}
 	defaultTrace = t.Logf
 
 	cases := []struct {
 		txt string
 		res Result
 	}{
-		{"v=spf1 include:tmperr", PermError},
-		{"v=spf1 a:tmperr", Neutral},
-		{"v=spf1 mx:tmperr", Neutral},
-		{"v=spf1 ptr:tmperr", Neutral},
-		{"v=spf1 mx:tmpmx", Neutral},
+		// Top-level checks will return a permanent error.
+		{"v=spf1 include:permerr", PermError},
+
+		// RFC specifies that on any DNS error (other than NXDOMAIN),
+		// we must return TempError.
+		// https://www.rfc-editor.org/rfc/rfc7208#section-5
+		{"v=spf1 a:permerr", TempError},
+		{"v=spf1 mx:permerr", TempError},
+		{"v=spf1 ptr:permerr", TempError},
+		{"v=spf1 mx:permmx", TempError},
 	}
 
 	for _, c := range cases {

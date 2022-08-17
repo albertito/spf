@@ -565,10 +565,10 @@ func (r *resolution) ptrField(res Result, field, domain string) (bool, Result, e
 		r.checkVoidLookup(len(ns), err)
 		if err != nil {
 			// https://tools.ietf.org/html/rfc7208#section-5
-			if isTemporary(err) {
-				return true, TempError, err
+			if isNotFound(err) {
+				return false, "", err
 			}
-			return false, "", err
+			return true, TempError, err
 		}
 
 		// Only take the first 10 names, ignore the rest.
@@ -628,10 +628,10 @@ func (r *resolution) existsField(res Result, field, domain string) (bool, Result
 	r.checkVoidLookup(len(ips), err)
 	if err != nil {
 		// https://tools.ietf.org/html/rfc7208#section-5
-		if isTemporary(err) {
-			return true, TempError, err
+		if isNotFound(err) {
+			return false, "", err
 		}
-		return false, "", err
+		return true, TempError, err
 	}
 
 	// Exists only counts if there are IPv4 matches.
@@ -758,10 +758,10 @@ func (r *resolution) aField(res Result, field, domain string) (bool, Result, err
 	r.checkVoidLookup(len(ips), err)
 	if err != nil {
 		// https://tools.ietf.org/html/rfc7208#section-5
-		if isTemporary(err) {
-			return true, TempError, err
+		if isNotFound(err) {
+			return false, "", err
 		}
-		return false, "", err
+		return true, TempError, err
 	}
 	for _, ip := range ips {
 		if ipMatch(r.ip, ip.IP, masks) {
@@ -791,10 +791,10 @@ func (r *resolution) mxField(res Result, field, domain string) (bool, Result, er
 	r.checkVoidLookup(len(mxs), err)
 	if err != nil {
 		// https://tools.ietf.org/html/rfc7208#section-5
-		if isTemporary(err) {
-			return true, TempError, err
+		if isNotFound(err) {
+			return false, "", err
 		}
-		return false, "", err
+		return true, TempError, err
 	}
 
 	// There's an explicit maximum of 10 MX records per match.
@@ -812,10 +812,7 @@ func (r *resolution) mxField(res Result, field, domain string) (bool, Result, er
 			if isNotFound(err) {
 				continue
 			}
-			if isTemporary(err) {
-				return true, TempError, err
-			}
-			return false, "", err
+			return true, TempError, err
 		}
 		for _, ipaddr := range ips {
 			mxips = append(mxips, ipaddr.IP)

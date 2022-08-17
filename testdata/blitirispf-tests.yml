@@ -106,10 +106,10 @@ tests:
   exists-perm-error:
     description: |
       Check that if, during an 'exists' forward resolution we get an error, we
-      fail the check.
+      return temperror.
     mailfrom: "foo@domain.net"
     host: 1.2.3.4
-    result: softfail
+    result: temperror
 zonedata:
   domain.net:
     - SPF: v=spf1 exists:lalala.com ~all
