@@ -1,0 +1,50 @@
+name: "tests"
+
+on:
+  push:
+    branches: [ "master", "next" ]
+  pull_request:
+    # The branches below must be a subset of the branches above
+    branches: [ "master", "next" ]
+  schedule:
+    - cron: '16 21 * * 6'
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    strategy:
+      matrix:
+        # Oldest supported version, and latest.
+        go-version: [ '1.15.x', '1.x' ]
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v3
+        with:
+          go-version: ${{ matrix.go-version }}
+          check-latest: true
+          cache: true
+
+      - run: go test ./...
+      - run: go test -race ./...
+
+  coverage:
+    needs: tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v3
+        with:
+          go-version: '1.x'
+          check-latest: true
+          cache: true
+
+      - name: test -cover
+        run: go test -covermode=count -coverprofile=coverage.out
+
+      - name: install goveralls
+        run: go install github.com/mattn/goveralls@latest
+
+      - name: upload coverage
+        run: goveralls -coverprofile=coverage.out -repotoken=${{ secrets.COVERALLS_TOKEN }}
