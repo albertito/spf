@@ -114,7 +114,9 @@ func (sl *stringSlice) UnmarshalYAML(value *yaml.Node) error {
 }
 
 // MX is encoded as:
-//     MX: [0, mail.example.com]
+//
+//	MX: [0, mail.example.com]
+//
 // so we have a custom decoder to handle the multi-typed list.
 type MX struct {
 	Prio uint16
@@ -273,8 +275,10 @@ func resultIn(got Result, exp []string) bool {
 }
 
 // Take a reverse-dns host name of the form:
-//   4.3.2.1.in-addr.arpa
-//   1.0.0.0.0.[...].0.0.E.B.A.B.E.F.A.C.ip6.arpa
+//
+//	4.3.2.1.in-addr.arpa
+//	1.0.0.0.0.[...].0.0.E.B.A.B.E.F.A.C.ip6.arpa
+//
 // and returns the corresponding ip.
 func reverseDNS(t *testing.T, r string) net.IP {
 	s := ""

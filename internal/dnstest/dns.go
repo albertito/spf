@@ -16,7 +16,6 @@ import (
 //
 // Not exported since this is not part of the public API and only used
 // internally on tests.
-//
 type TestResolver struct {
 	Txt    map[string][]string
 	Mx     map[string][]*net.MX

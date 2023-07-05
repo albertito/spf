@@ -8,22 +8,12 @@
 // This package is intended to be used by SMTP servers to implement SPF
 // validation.
 //
-// All mechanisms and modifiers are supported:
-//   all
-//   include
-//   a
-//   mx
-//   ptr
-//   ip4
-//   ip6
-//   exists
-//   redirect
-//   exp (ignored)
-//   Macros
+// All SPF mechanisms, modifiers, and macros are supported.
 //
 // References:
-//   https://tools.ietf.org/html/rfc7208
-//   https://en.wikipedia.org/wiki/Sender_Policy_Framework
+//
+//	https://tools.ietf.org/html/rfc7208
+//	https://en.wikipedia.org/wiki/Sender_Policy_Framework
 package spf // import "blitiri.com.ar/go/spf"
 
 import (
