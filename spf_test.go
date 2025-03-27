@@ -21,10 +21,12 @@ func init() {
 	NewDefaultResolver()
 }
 
-var ip1110 = net.ParseIP("1.1.1.0")
-var ip1111 = net.ParseIP("1.1.1.1")
-var ip6666 = net.ParseIP("2001:db8::68")
-var ip6660 = net.ParseIP("2001:db8::0")
+var (
+	ip1110 = net.ParseIP("1.1.1.0")
+	ip1111 = net.ParseIP("1.1.1.1")
+	ip6666 = net.ParseIP("2001:db8::68")
+	ip6660 = net.ParseIP("2001:db8::0")
+)
 
 func TestBasic(t *testing.T) {
 	dns := NewDefaultResolver()
