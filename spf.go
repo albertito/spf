@@ -357,13 +357,6 @@ func (r *resolution) Check(domain string) (Result, error) {
 			continue
 		}
 
-		// Limit the number of resolutions.
-		// https://tools.ietf.org/html/rfc7208#section-4.6.4
-		if r.count > r.maxcount {
-			r.trace("lookup limit reached")
-			return PermError, ErrLookupLimitReached
-		}
-
 		if r.voidcount > r.maxvoidcount {
 			r.trace("void lookup limit reached")
 			return PermError, ErrVoidLookupLimitReached
@@ -485,6 +478,19 @@ func isNotFound(err error) bool {
 	return ok && derr.IsNotFound
 }
 
+// Account for a DNS lookup, and return an error if the limit was already
+// reached. Fields which do a DNS lookup must call this before doing it, so we
+// never go over the limit.
+// https://tools.ietf.org/html/rfc7208#section-4.6.4
+func (r *resolution) countLookup() error {
+	if r.count >= r.maxcount {
+		r.trace("lookup limit reached")
+		return ErrLookupLimitReached
+	}
+	r.count++
+	return nil
+}
+
 // Check if the given DNS error is a "void lookup" (0 answers, or nxdomain),
 // and if so increment the void lookup counter.
 func (r *resolution) checkVoidLookup(nanswers int, err error) {
@@ -549,8 +555,10 @@ func (r *resolution) ptrField(res Result, field, domain string) (bool, Result, e
 	}
 
 	if r.ipNames == nil {
+		if err := r.countLookup(); err != nil {
+			return true, PermError, err
+		}
 		r.ipNames = []string{}
-		r.count++
 		ns, err := r.resolver.LookupAddr(r.ctx, r.ip.String())
 		r.checkVoidLookup(len(ns), err)
 		if err != nil {
@@ -613,7 +621,9 @@ func (r *resolution) existsField(res Result, field, domain string) (bool, Result
 		return true, PermError, ErrInvalidDomain
 	}
 
-	r.count++
+	if err := r.countLookup(); err != nil {
+		return true, PermError, err
+	}
 	ips, err := r.resolver.LookupIPAddr(r.ctx, eDomain)
 	r.checkVoidLookup(len(ips), err)
 	if err != nil {
@@ -642,7 +652,9 @@ func (r *resolution) includeField(res Result, field, domain string) (bool, Resul
 	if err != nil {
 		return true, PermError, ErrInvalidMacro
 	}
-	r.count++
+	if err := r.countLookup(); err != nil {
+		return true, PermError, err
+	}
 	ir, err := r.Check(incdomain)
 	switch ir {
 	case Pass:
@@ -743,7 +755,9 @@ func (r *resolution) aField(res Result, field, domain string) (bool, Result, err
 		return true, PermError, ErrInvalidMacro
 	}
 
-	r.count++
+	if err := r.countLookup(); err != nil {
+		return true, PermError, err
+	}
 	ips, err := r.resolver.LookupIPAddr(r.ctx, aDomain)
 	r.checkVoidLookup(len(ips), err)
 	if err != nil {
@@ -776,7 +790,9 @@ func (r *resolution) mxField(res Result, field, domain string) (bool, Result, er
 		return true, PermError, ErrInvalidMacro
 	}
 
-	r.count++
+	if err := r.countLookup(); err != nil {
+		return true, PermError, err
+	}
 	mxs, err := r.resolver.LookupMX(r.ctx, mxDomain)
 	r.checkVoidLookup(len(mxs), err)
 
@@ -839,7 +855,9 @@ func (r *resolution) redirectField(field, domain string) (Result, error) {
 	}
 
 	// https://tools.ietf.org/html/rfc7208#section-6.1
-	r.count++
+	if err := r.countLookup(); err != nil {
+		return PermError, err
+	}
 	result, err := r.Check(rDomain)
 	if result == None {
 		result = PermError

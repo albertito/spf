@@ -3,6 +3,7 @@ package spf
 import (
 	"context"
 	"net"
+	"strings"
 	"testing"
 
 	"blitiri.com.ar/go/spf/internal/dnstest"
@@ -192,6 +193,55 @@ func TestRecursionLimit(t *testing.T) {
 	res, err := CheckHost(ip1111, "domain")
 	if res != PermError || err != ErrLookupLimitReached {
 		t.Errorf("expected permerror, got %v (%v)", res, err)
+	}
+}
+
+func TestLookupLimit(t *testing.T) {
+	dns := NewDefaultResolver()
+	defaultTrace = t.Logf
+
+	// "a:d1110" never matches the IP we check, so we use it to consume
+	// lookups; each occurrence counts as one.
+	// https://tools.ietf.org/html/rfc7208#section-4.6.4
+	ten := strings.Repeat("a:d1110 ", 10)
+
+	cases := []struct {
+		txt string
+		res Result
+		err error
+	}{
+		// Ten lookups are allowed, and the fields after them are evaluated.
+		{"v=spf1 " + ten + "-all", Fail, ErrMatchedAll},
+		{"v=spf1 " + ten + "ip4:1.1.1.1", Pass, ErrMatchedIP},
+
+		// The 11th lookup is not performed, even if it would match.
+		{"v=spf1 " + ten + "a:d1111 -all", PermError, ErrLookupLimitReached},
+		{"v=spf1 " + ten + "mx:d1110 -all", PermError, ErrLookupLimitReached},
+		{"v=spf1 " + ten + "ptr:d1111 -all", PermError, ErrLookupLimitReached},
+		{"v=spf1 " + ten + "exists:d1111 -all", PermError, ErrLookupLimitReached},
+		{"v=spf1 " + ten + "include:alldomain -all", PermError, ErrLookupLimitReached},
+		{"v=spf1 " + ten + "redirect=alldomain", PermError, ErrLookupLimitReached},
+
+		// The 11th lookup is the last field, so there is nothing after it to
+		// catch the excess.
+		{"v=spf1 " + ten + "a:d1111", PermError, ErrLookupLimitReached},
+	}
+
+	dns.Ip["d1111"] = []net.IP{ip1111}
+	dns.Ip["d1110"] = []net.IP{ip1110}
+	dns.Mx["d1110"] = []*net.MX{mx("d1111", 5)}
+	dns.Addr["1.1.1.1"] = []string{"d1111."}
+	dns.Txt["alldomain"] = []string{"v=spf1 +all"}
+
+	for _, c := range cases {
+		dns.Txt["domain"] = []string{c.txt}
+		res, err := CheckHost(ip1111, "domain")
+		if res != c.res {
+			t.Errorf("%q: expected %q, got %q", c.txt, c.res, res)
+		}
+		if err != c.err {
+			t.Errorf("%q: expected error [%v], got [%v]", c.txt, c.err, err)
+		}
 	}
 }
 
