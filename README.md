@@ -3,7 +3,6 @@
 
 [![GoDoc](https://godoc.org/blitiri.com.ar/go/spf?status.svg)](https://pkg.go.dev/blitiri.com.ar/go/spf)
 [![Tests Status](https://img.shields.io/github/checks-status/albertito/spf/master)](https://github.com/albertito/spf/actions)
-[![Go Report Card](https://goreportcard.com/badge/github.com/albertito/spf)](https://goreportcard.com/report/github.com/albertito/spf)
 [![Coverage Status](https://coveralls.io/repos/github/albertito/spf/badge.svg?branch=next)](https://coveralls.io/github/albertito/spf)
 
 [spf](https://godoc.org/blitiri.com.ar/go/spf) is an open source
