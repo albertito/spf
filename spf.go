@@ -552,10 +552,16 @@ func (r *resolution) ptrField(res Result, field, domain string) (bool, Result, e
 		return true, PermError, ErrInvalidDomain
 	}
 
+	// Each "ptr" term counts against the lookup limit, even if we already have
+	// the names from a previous one and don't need to query DNS again: the RFC
+	// limits the number of terms that cause DNS lookups, not the number of
+	// queries we end up making.
+	// https://tools.ietf.org/html/rfc7208#section-4.6.4
+	if err := r.countLookup(); err != nil {
+		return true, PermError, err
+	}
+
 	if r.ipNames == nil {
-		if err := r.countLookup(); err != nil {
-			return true, PermError, err
-		}
 		r.ipNames = []string{}
 		ns, err := r.resolver.LookupAddr(r.ctx, r.ip.String())
 		if verr := r.countVoidLookup(len(ns), err); verr != nil {

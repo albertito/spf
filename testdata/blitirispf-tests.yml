@@ -413,6 +413,54 @@ zonedata:
     - MX: [2, blah2]
     - MX: [3, blah3]
 ---
+description: PTR resolution limits
+tests:
+  ptr-resolution-10-terms:
+    description: |
+      Check that a resolution with 10 "ptr" terms works, because it's within
+      the limit, and that the terms after them are still evaluated. The
+      address is only resolved once and the names reused, but each term still
+      counts against the limit.
+    mailfrom: "foo@ptr10"
+    host: 1.2.3.4
+    result: pass
+  ptr-resolution-11-terms:
+    description: |
+      Check that a resolution with 11 "ptr" terms causes a permerror due to
+      exceeding lookup limits, even though only one DNS lookup is performed.
+    mailfrom: "foo@ptr11"
+    host: 1.2.3.4
+    result: permerror
+  ptr-resolution-mixed-terms:
+    description: |
+      Check that "ptr" terms are counted individually when mixed with other
+      terms that cause DNS lookups: here the second "ptr" is the 11th term,
+      and takes the resolution over the limit.
+    mailfrom: "foo@ptrmixed"
+    host: 1.2.3.4
+    result: permerror
+zonedata:
+  ptr10:
+    - SPF: v=spf1 ptr:nomatch.com ptr:nomatch.com ptr:nomatch.com
+                  ptr:nomatch.com ptr:nomatch.com ptr:nomatch.com
+                  ptr:nomatch.com ptr:nomatch.com ptr:nomatch.com
+                  ptr:nomatch.com ip4:1.2.3.4 -all
+  ptr11:
+    - SPF: v=spf1 ptr:nomatch.com ptr:nomatch.com ptr:nomatch.com
+                  ptr:nomatch.com ptr:nomatch.com ptr:nomatch.com
+                  ptr:nomatch.com ptr:nomatch.com ptr:nomatch.com
+                  ptr:nomatch.com ptr:nomatch.com -all
+  ptrmixed:
+    - SPF: v=spf1 a:nomatch a:nomatch a:nomatch a:nomatch a:nomatch
+                  a:nomatch a:nomatch a:nomatch a:nomatch
+                  ptr:nomatch.com ptr:nomatch.com -all
+  nomatch:
+    - A: 10.0.0.1
+  ptrhost.com:
+    - A: 1.2.3.4
+  4.3.2.1.in-addr.arpa:
+    - PTR: ptrhost.com
+---
 description: NXDOMAIN tests
 tests:
   one-mx-not-found:
