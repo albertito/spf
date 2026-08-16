@@ -226,6 +226,98 @@ zonedata:
   d25:
     - SPF: v=spf1 all
 ---
+description: Lookup limit boundary
+tests:
+  lookup-limit-at-10:
+    description: |
+      Check that a resolution with exactly 10 terms that cause DNS lookups is
+      allowed, and that the terms after them are still evaluated.
+    mailfrom: "foo@at10"
+    host: 1.2.3.4
+    result: pass
+  lookup-limit-at-10-matches:
+    description: |
+      Check that the 10th term that causes a DNS lookup is evaluated, and can
+      produce a match. It is the last term, so nothing after it can alter the
+      result.
+    mailfrom: "foo@at10match"
+    host: 1.2.3.4
+    result: pass
+  lookup-limit-over-a:
+    description: |
+      Check that the 11th "a" term is not evaluated, even though it would
+      match. The limit must be checked before doing the lookup: checking it
+      only when moving on to the next term allows 11 lookups instead of 10,
+      and lets the 11th one decide the result.
+    mailfrom: "foo@over-a"
+    host: 1.2.3.4
+    result: permerror
+  lookup-limit-over-mx:
+    description: |
+      Same as lookup-limit-over-a, for the "mx" mechanism.
+    mailfrom: "foo@over-mx"
+    host: 1.2.3.4
+    result: permerror
+  lookup-limit-over-exists:
+    description: |
+      Same as lookup-limit-over-a, for the "exists" mechanism.
+    mailfrom: "foo@over-exists"
+    host: 1.2.3.4
+    result: permerror
+  lookup-limit-over-ptr:
+    description: |
+      Same as lookup-limit-over-a, for the "ptr" mechanism.
+    mailfrom: "foo@over-ptr"
+    host: 1.2.3.4
+    result: permerror
+  lookup-limit-over-no-match:
+    description: |
+      Check that the 11th term causes a permerror even when it does not match
+      and there is no term after it. Otherwise the record is evaluated to the
+      end, and the excess lookup goes unnoticed.
+    mailfrom: "foo@over-nomatch"
+    host: 1.2.3.4
+    result: permerror
+zonedata:
+  at10:
+    - SPF: v=spf1 a:nomatch a:nomatch a:nomatch a:nomatch a:nomatch
+                  a:nomatch a:nomatch a:nomatch a:nomatch a:nomatch
+                  ip4:1.2.3.4 -all
+  at10match:
+    - SPF: v=spf1 a:nomatch a:nomatch a:nomatch a:nomatch a:nomatch
+                  a:nomatch a:nomatch a:nomatch a:nomatch
+                  a:amatch
+  over-a:
+    - SPF: v=spf1 a:nomatch a:nomatch a:nomatch a:nomatch a:nomatch
+                  a:nomatch a:nomatch a:nomatch a:nomatch a:nomatch
+                  a:amatch
+  over-mx:
+    - SPF: v=spf1 a:nomatch a:nomatch a:nomatch a:nomatch a:nomatch
+                  a:nomatch a:nomatch a:nomatch a:nomatch a:nomatch
+                  mx:mxmatch
+  over-exists:
+    - SPF: v=spf1 a:nomatch a:nomatch a:nomatch a:nomatch a:nomatch
+                  a:nomatch a:nomatch a:nomatch a:nomatch a:nomatch
+                  exists:amatch
+  over-ptr:
+    - SPF: v=spf1 a:nomatch a:nomatch a:nomatch a:nomatch a:nomatch
+                  a:nomatch a:nomatch a:nomatch a:nomatch a:nomatch
+                  ptr:ptrmatch.com
+  over-nomatch:
+    - SPF: v=spf1 a:nomatch a:nomatch a:nomatch a:nomatch a:nomatch
+                  a:nomatch a:nomatch a:nomatch a:nomatch a:nomatch
+                  a:nomatch
+  nomatch:
+    - A: 10.0.0.1
+  amatch:
+    - A: 1.2.3.4
+  mxmatch:
+    - MX: [10, amatch]
+  ptrmatch.com:
+    - A: 1.2.3.4
+  4.3.2.1.in-addr.arpa:
+    - PTR: ptrmatch.com
+---
 description: MX resolution limits
 tests:
   mx-resolution-10-terms:
