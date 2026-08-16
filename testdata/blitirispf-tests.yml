@@ -318,6 +318,69 @@ zonedata:
   4.3.2.1.in-addr.arpa:
     - PTR: ptrmatch.com
 ---
+description: Void lookup limit
+tests:
+  void-limit-at-2:
+    description: |
+      Check that 2 void lookups (the default limit) are allowed, and that the
+      terms after them are still evaluated.
+    mailfrom: "foo@atvoid2"
+    host: 1.2.3.4
+    result: pass
+  void-limit-over-a:
+    description: |
+      Check that exceeding the void lookup limit on an "a" term causes a
+      permerror, even when it is the last term. The limit must be checked
+      right after the lookup: checking it only when moving on to the next
+      term lets the excess go unnoticed if there is no next term.
+    mailfrom: "foo@overvoid-a"
+    host: 1.2.3.4
+    result: permerror
+  void-limit-over-mx:
+    description: |
+      Same as void-limit-over-a, for the "mx" mechanism. The domain exists but
+      has no MX records, which is a void lookup.
+    mailfrom: "foo@overvoid-mx"
+    host: 1.2.3.4
+    result: permerror
+  void-limit-over-exists:
+    description: |
+      Same as void-limit-over-a, for the "exists" mechanism.
+    mailfrom: "foo@overvoid-exists"
+    host: 1.2.3.4
+    result: permerror
+  void-limit-over-ptr:
+    description: |
+      Same as void-limit-over-a, for the "ptr" mechanism. The address has no
+      PTR records, which is a void lookup.
+    mailfrom: "foo@overvoid-ptr"
+    host: 1.2.3.4
+    result: permerror
+  void-limit-over-in-include:
+    description: |
+      Check that exceeding the void lookup limit inside an "include" makes the
+      whole evaluation return permerror, instead of just making the include
+      not match. Note the include is the last term, so nothing after it can
+      turn the excess into a permerror on its own.
+    mailfrom: "foo@overvoid-include"
+    host: 1.2.3.4
+    result: permerror
+zonedata:
+  atvoid2:
+    - SPF: v=spf1 a:void1 a:void2 ip4:1.2.3.4 -all
+  overvoid-a:
+    - SPF: v=spf1 a:void1 a:void2 a:void3
+  overvoid-mx:
+    - SPF: v=spf1 a:void1 a:void2 mx:onlya
+  overvoid-exists:
+    - SPF: v=spf1 a:void1 a:void2 exists:void3
+  overvoid-ptr:
+    - SPF: v=spf1 a:void1 a:void2 ptr
+  overvoid-include:
+    - SPF: v=spf1 include:overvoid-a
+  onlya:
+    - A: 1.2.3.4
+---
 description: MX resolution limits
 tests:
   mx-resolution-10-terms:

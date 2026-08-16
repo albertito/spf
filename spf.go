@@ -357,11 +357,6 @@ func (r *resolution) Check(domain string) (Result, error) {
 			continue
 		}
 
-		if r.voidcount > r.maxvoidcount {
-			r.trace("void lookup limit reached")
-			return PermError, ErrVoidLookupLimitReached
-		}
-
 		// See if we have a qualifier, defaulting to + (pass).
 		// https://tools.ietf.org/html/rfc7208#section-4.6.2
 		result, ok := qualToResult[field[0]]
@@ -492,23 +487,26 @@ func (r *resolution) countLookup() error {
 }
 
 // Check if the given DNS error is a "void lookup" (0 answers, or nxdomain),
-// and if so increment the void lookup counter.
-func (r *resolution) checkVoidLookup(nanswers int, err error) {
+// and return an error if the limit was exceeded.
+// Unlike countLookup, we can only tell a lookup was void after doing it, so
+// fields must call this right after the lookup, and stop the evaluation if it
+// returns an error.
+// https://tools.ietf.org/html/rfc7208#section-4.6.4
+func (r *resolution) countVoidLookup(nanswers int, err error) error {
+	derr, isDNSErr := err.(*net.DNSError)
 	if err == nil && nanswers == 0 {
 		r.voidcount++
 		r.trace("void lookup: no answers")
-		return
-	}
-
-	derr, ok := err.(*net.DNSError)
-	if !ok {
-		return
-	}
-
-	if derr.IsNotFound {
+	} else if isDNSErr && derr.IsNotFound {
 		r.voidcount++
 		r.trace("void lookup: nxdomain")
 	}
+
+	if r.voidcount > r.maxvoidcount {
+		r.trace("void lookup limit reached")
+		return ErrVoidLookupLimitReached
+	}
+	return nil
 }
 
 // ipField processes an "ip" field.
@@ -560,7 +558,9 @@ func (r *resolution) ptrField(res Result, field, domain string) (bool, Result, e
 		}
 		r.ipNames = []string{}
 		ns, err := r.resolver.LookupAddr(r.ctx, r.ip.String())
-		r.checkVoidLookup(len(ns), err)
+		if verr := r.countVoidLookup(len(ns), err); verr != nil {
+			return true, PermError, verr
+		}
 		if err != nil {
 			// https://tools.ietf.org/html/rfc7208#section-5
 			if isNotFound(err) {
@@ -625,7 +625,9 @@ func (r *resolution) existsField(res Result, field, domain string) (bool, Result
 		return true, PermError, err
 	}
 	ips, err := r.resolver.LookupIPAddr(r.ctx, eDomain)
-	r.checkVoidLookup(len(ips), err)
+	if verr := r.countVoidLookup(len(ips), err); verr != nil {
+		return true, PermError, verr
+	}
 	if err != nil {
 		// https://tools.ietf.org/html/rfc7208#section-5
 		if isNotFound(err) {
@@ -759,7 +761,9 @@ func (r *resolution) aField(res Result, field, domain string) (bool, Result, err
 		return true, PermError, err
 	}
 	ips, err := r.resolver.LookupIPAddr(r.ctx, aDomain)
-	r.checkVoidLookup(len(ips), err)
+	if verr := r.countVoidLookup(len(ips), err); verr != nil {
+		return true, PermError, verr
+	}
 	if err != nil {
 		// https://tools.ietf.org/html/rfc7208#section-5
 		if isNotFound(err) {
@@ -794,7 +798,9 @@ func (r *resolution) mxField(res Result, field, domain string) (bool, Result, er
 		return true, PermError, err
 	}
 	mxs, err := r.resolver.LookupMX(r.ctx, mxDomain)
-	r.checkVoidLookup(len(mxs), err)
+	if verr := r.countVoidLookup(len(mxs), err); verr != nil {
+		return true, PermError, verr
+	}
 
 	// If we get some results, use them even if we get an error alongisde.
 	// This happens when one of the records is invalid, because Go library can
