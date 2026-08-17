@@ -625,9 +625,7 @@ func (r *resolution) ptrField(res Result, field, domain string) (bool, Result, e
 			r.trace("ptr forward resolution %q -> %q", n, addrs)
 			for _, addr := range addrs {
 				if addr.IP.Equal(r.ip) {
-					// Append the lower-case variants so we do a
-					// case-insensitive lookup below.
-					r.ipNames = append(r.ipNames, strings.ToLower(n))
+					r.ipNames = append(r.ipNames, n)
 					break
 				}
 			}
@@ -635,15 +633,75 @@ func (r *resolution) ptrField(res Result, field, domain string) (bool, Result, e
 	}
 
 	r.trace("ptr evaluating %q in %q", ptrDomain, r.ipNames)
-	ptrDomain = strings.ToLower(ptrDomain)
 	for _, n := range r.ipNames {
-		if strings.HasSuffix(n, ptrDomain+".") {
+		if isSubdomain(n, ptrDomain) {
 			r.trace("ptr match: %q", n)
 			return true, res, ErrMatchedPTR
 		}
 	}
 
 	return false, "", nil
+}
+
+// isSubdomain returns whether the given name is the domain itself, or a
+// subdomain of it. A trailing dot on either of them is ignored, so it can be
+// used to compare the fully qualified names we get from DNS against the ones
+// that appear in a record.
+//
+// Note the match has to be on a label boundary: "notexample.com" is NOT a
+// subdomain of "example.com".
+// https://tools.ietf.org/html/rfc7208#section-5.5
+func isSubdomain(name, domain string) bool {
+	nameLabels := labels(name)
+	domainLabels := labels(domain)
+
+	// The name has to have at least as many labels as the domain.
+	if len(nameLabels) < len(domainLabels) {
+		return false
+	}
+
+	// And its trailing labels have to be the domain's.
+	nameLabels = nameLabels[len(nameLabels)-len(domainLabels):]
+	return slices.EqualFunc(nameLabels, domainLabels, asciiEqualFold)
+}
+
+// labels splits a domain name into its labels, ignoring the trailing dot.
+func labels(domain string) []string {
+	return strings.Split(strings.TrimSuffix(domain, "."), ".")
+}
+
+// asciiEqualFold is like strings.EqualFold, but it only considers ASCII
+// letters to be case-insensitive.
+//
+// DNS names are octet strings, compared octet by octet, and only ASCII
+// letters are case-insensitive; so comparing bytes is exactly the DNS rule,
+// and it holds even if the name is not valid UTF-8.
+//
+// An Unicode-aware comparison would be incorrect: it can consider equal two
+// names that DNS considers different (for example, strings.ToLower turns the
+// U+212A KELVIN SIGN into an ASCII "k"). Note we don't enforce that records
+// are 7-bit ASCII, so non-ASCII names do reach this.
+//
+// Folding only ASCII is safe to do byte by byte because no byte of a
+// multi-byte UTF-8 sequence is < 0x80, so we can never alter one by mistake.
+// https://tools.ietf.org/html/rfc4343
+func asciiEqualFold(a, b string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range len(a) {
+		if asciiToLower(a[i]) != asciiToLower(b[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+func asciiToLower(c byte) byte {
+	if 'A' <= c && c <= 'Z' {
+		return c + ('a' - 'A')
+	}
+	return c
 }
 
 // existsField processes a "exists" field.

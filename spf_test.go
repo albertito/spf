@@ -509,6 +509,101 @@ func mkDM(v4, v6 int) dualMasks {
 	return dualMasks{net.CIDRMask(v4, 32), net.CIDRMask(v6, 128)}
 }
 
+func TestIsSubdomainHelper(t *testing.T) {
+	cases := []struct {
+		name   string
+		domain string
+		ok     bool
+	}{
+		// The name is the domain itself.
+		{"example.com", "example.com", true},
+		{"example.com.", "example.com", true},
+		{"example.com", "example.com.", true},
+		{"example.com.", "example.com.", true},
+
+		// The name is a subdomain of the domain.
+		{"sub.example.com", "example.com", true},
+		{"sub.example.com.", "example.com", true},
+		{"a.b.c.example.com", "example.com", true},
+		{"sub.example.com", "sub.example.com", true},
+
+		// Case insensitivity, on both sides.
+		{"EXAMPLE.com", "example.COM", true},
+		{"SUB.Example.Com.", "eXaMpLe.cOm", true},
+
+		// The match must be on a label boundary.
+		{"notexample.com", "example.com", false},
+		{"xexample.com", "example.com", false},
+		{"sub.notexample.com", "example.com", false},
+
+		// Other non-matches.
+		{"example.com", "sub.example.com", false},
+		{"example.org", "example.com", false},
+		{"example.com", "", false},
+		{"", "example.com", false},
+		{"", "", true},
+
+		// A dot alone is not a valid label, so it does not turn into a
+		// match against the empty domain.
+		{".", "example.com", false},
+
+		// Case folding is ASCII-only: DNS is case-insensitive for ASCII,
+		// so these are different names, even though Unicode case folding
+		// considers them equal. Note both sides have the same length, so
+		// they are really compared and not rejected by the length checks.
+		{"Σ.example.com", "σ.example.com", false},
+		{"sub.Σ.example.com", "sub.σ.example.com", false},
+		{"А.example.com", "а.example.com", false},
+
+		// The same non-ASCII bytes on both sides do match.
+		{"Σ.example.com", "Σ.example.com", true},
+		{"sub.Σ.example.com", "Σ.example.com", true},
+
+		// U+212A KELVIN SIGN, which strings.ToLower turns into an ASCII
+		// "k". This one is caught by the length check (3 bytes vs 1), but
+		// it is why we no longer lowercase the names beforehand.
+		{"K.example.com", "k.example.com", false},
+	}
+
+	for _, c := range cases {
+		if ok := isSubdomain(c.name, c.domain); ok != c.ok {
+			t.Errorf("isSubdomain(%q, %q): expected %v, got %v",
+				c.name, c.domain, c.ok, ok)
+		}
+	}
+}
+
+func TestAsciiEqualFoldHelper(t *testing.T) {
+	// isSubdomain only ever calls this with equal-length strings, so the
+	// length check is not reachable from there; test it directly.
+	cases := []struct {
+		a, b string
+		ok   bool
+	}{
+		{"", "", true},
+		{"abc", "abc", true},
+		{"ABC", "abc", true},
+		{"aBc", "AbC", true},
+		{"abc", "abd", false},
+
+		// Different lengths.
+		{"abc", "ab", false},
+		{"ab", "abc", false},
+		{"", "a", false},
+
+		// Non-ASCII is compared byte by byte, without case folding.
+		{"Σ", "σ", false},
+		{"Σ", "Σ", true},
+	}
+
+	for _, c := range cases {
+		if ok := asciiEqualFold(c.a, c.b); ok != c.ok {
+			t.Errorf("asciiEqualFold(%q, %q): expected %v, got %v",
+				c.a, c.b, c.ok, ok)
+		}
+	}
+}
+
 func TestIPMatchHelper(t *testing.T) {
 	cases := []struct {
 		ip      net.IP
