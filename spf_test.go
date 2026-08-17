@@ -5,12 +5,10 @@ import (
 	"net"
 	"strings"
 	"testing"
-
-	"blitiri.com.ar/go/spf/internal/dnstest"
 )
 
-func NewDefaultResolver() *dnstest.TestResolver {
-	dns := dnstest.NewResolver()
+func NewDefaultResolver() *testResolver {
+	dns := newTestResolver()
 	defaultResolver = dns
 	return dns
 }
@@ -742,8 +740,8 @@ func TestWithContext(t *testing.T) {
 
 func TestWithResolver(t *testing.T) {
 	// Use a custom resolver, making sure it's different from the default.
-	defaultResolver = dnstest.NewResolver()
-	dns := dnstest.NewResolver()
+	defaultResolver = newTestResolver()
+	dns := newTestResolver()
 	defaultTrace = t.Logf
 
 	dns.Txt["domain1"] = []string{"v=spf1 include:domain2"}
@@ -759,7 +757,7 @@ func TestWithResolver(t *testing.T) {
 // Test some corner cases when resolver.LookupIPAddr returns an invalid
 // address. This can happen if using a buggy custom resolver.
 func TestBadResolverResponse(t *testing.T) {
-	dns := dnstest.NewResolver()
+	dns := newTestResolver()
 	defaultTrace = t.Logf
 
 	// When LookupIPAddr returns an invalid ip, for an "a" field.

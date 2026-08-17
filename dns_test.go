@@ -1,10 +1,5 @@
 // DNS resolver for testing purposes.
-//
-// In the future, when go fuzz can make use of _test.go files, we can rename
-// this file dns_test.go and remove this extra package entirely.
-// Until then, unfortunately this is the most reasonable way to share these
-// helpers between go and fuzz tests.
-package dnstest
+package spf
 
 import (
 	"context"
@@ -16,7 +11,7 @@ import (
 //
 // Not exported since this is not part of the public API and only used
 // internally on tests.
-type TestResolver struct {
+type testResolver struct {
 	Txt    map[string][]string
 	Mx     map[string][]*net.MX
 	Ip     map[string][]net.IP
@@ -25,8 +20,8 @@ type TestResolver struct {
 	Errors map[string]error
 }
 
-func NewResolver() *TestResolver {
-	return &TestResolver{
+func newTestResolver() *testResolver {
+	return &testResolver{
 		Txt:    map[string][]string{},
 		Mx:     map[string][]*net.MX{},
 		Ip:     map[string][]net.IP{},
@@ -41,7 +36,7 @@ var nxDomainErr = &net.DNSError{
 	IsNotFound: true,
 }
 
-func (r *TestResolver) LookupTXT(ctx context.Context, domain string) (txts []string, err error) {
+func (r *testResolver) LookupTXT(ctx context.Context, domain string) (txts []string, err error) {
 	if ctx.Err() != nil {
 		return nil, ctx.Err()
 	}
@@ -56,7 +51,7 @@ func (r *TestResolver) LookupTXT(ctx context.Context, domain string) (txts []str
 	return r.Txt[domain], r.Errors[domain]
 }
 
-func (r *TestResolver) LookupMX(ctx context.Context, domain string) (mxs []*net.MX, err error) {
+func (r *testResolver) LookupMX(ctx context.Context, domain string) (mxs []*net.MX, err error) {
 	if ctx.Err() != nil {
 		return nil, ctx.Err()
 	}
@@ -71,7 +66,7 @@ func (r *TestResolver) LookupMX(ctx context.Context, domain string) (mxs []*net.
 	return r.Mx[domain], r.Errors[domain]
 }
 
-func (r *TestResolver) LookupIPAddr(ctx context.Context, host string) (as []net.IPAddr, err error) {
+func (r *testResolver) LookupIPAddr(ctx context.Context, host string) (as []net.IPAddr, err error) {
 	if ctx.Err() != nil {
 		return nil, ctx.Err()
 	}
@@ -94,7 +89,7 @@ func ipsToAddrs(ips []net.IP) []net.IPAddr {
 	return as
 }
 
-func (r *TestResolver) LookupAddr(ctx context.Context, host string) (addrs []string, err error) {
+func (r *testResolver) LookupAddr(ctx context.Context, host string) (addrs []string, err error) {
 	if ctx.Err() != nil {
 		return nil, ctx.Err()
 	}
