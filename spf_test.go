@@ -535,6 +535,64 @@ func TestIPMatchHelper(t *testing.T) {
 	}
 }
 
+func TestInvalidIP(t *testing.T) {
+	dns := NewDefaultResolver()
+	defaultTrace = t.Logf
+
+	// A record that would match anything, to make sure we are rejecting the
+	// address and not just failing to match it.
+	dns.Txt["domain"] = []string{"v=spf1 exists:%{i}.d1111 +all"}
+	dns.Ip["d1111"] = []net.IP{ip1111}
+
+	// net.IP is a byte slice, so it can hold things that are not valid
+	// addresses. net.ParseIP returns nil on error, which is the most likely
+	// one to show up in practice.
+	cases := []net.IP{
+		nil,
+		net.ParseIP("this is not an ip"),
+		{},
+		{1, 2, 3},
+		{1, 2, 3, 4, 5},
+	}
+
+	for _, ip := range cases {
+		res, err := CheckHost(ip, "domain")
+		if res != PermError || err != ErrInvalidIPAddress {
+			t.Errorf("CheckHost(%v): expected %v/%v, got %v/%v",
+				[]byte(ip), PermError, ErrInvalidIPAddress, res, err)
+		}
+
+		res, err = CheckHostWithSender(ip, "helo", "user@domain")
+		if res != PermError || err != ErrInvalidIPAddress {
+			t.Errorf("CheckHostWithSender(%v): expected %v/%v, got %v/%v",
+				[]byte(ip), PermError, ErrInvalidIPAddress, res, err)
+		}
+	}
+}
+
+func TestIPToMacroStr(t *testing.T) {
+	cases := []struct {
+		ip  net.IP
+		out string
+	}{
+		{ip1111, "1.1.1.1"},
+		{net.ParseIP("::ffff:1.1.1.1"), "1.1.1.1"},
+		{ip6666, "2.0.0.1.0.d.b.8.0.0.0.0.0.0.0.0." +
+			"0.0.0.0.0.0.0.0.0.0.0.0.0.0.6.8"},
+
+		// Invalid addresses: the entry points reject them, but the helper
+		// must not panic on them either.
+		{nil, ""},
+		{net.IP{1, 2, 3}, ""},
+	}
+	for _, c := range cases {
+		if out := ipToMacroStr(c.ip); out != c.out {
+			t.Errorf("ipToMacroStr(%v): expected %q, got %q",
+				[]byte(c.ip), c.out, out)
+		}
+	}
+}
+
 func TestInvalidMacro(t *testing.T) {
 	// Test that the macro expansion detects some invalid macros.
 	macros := []string{

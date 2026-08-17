@@ -73,6 +73,9 @@ var qualToResult = map[byte]Result{
 // situations may change over time, and new ones may be added. Be careful
 // about over-relying on these.
 var (
+	// Errors related to the arguments given to the check functions.
+	ErrInvalidIPAddress = errors.New("invalid IP address")
+
 	// Errors related to an invalid SPF record.
 	ErrUnknownField  = errors.New("unknown field")
 	ErrInvalidIP     = errors.New("invalid ipX value")
@@ -132,6 +135,8 @@ type Option func(*resolution)
 // the check as per RFC, as well as an error for debugging purposes. Note that
 // the error may be non-nil even on successful checks.
 //
+// If `ip` is not a valid IP address, the result is PermError.
+//
 // Reference: https://tools.ietf.org/html/rfc7208#section-4
 //
 // Deprecated: use CheckHostWithSender instead.
@@ -146,7 +151,22 @@ func CheckHost(ip net.IP, domain string) (Result, error) {
 		resolver:     defaultResolver,
 		trace:        defaultTrace,
 	}
+
+	if !validIP(ip) {
+		r.trace("invalid ip %v", ip)
+		return PermError, ErrInvalidIPAddress
+	}
+
 	return r.Check(domain)
+}
+
+// validIP checks that the given IP address is valid. Because net.IP is a byte
+// slice, it can hold values that are not valid addresses, including nil
+// (which is what net.ParseIP returns on error).
+func validIP(ip net.IP) bool {
+	// To16 returns nil unless the address is a valid IP address (4 or 16
+	// bytes long).
+	return ip.To16() != nil
 }
 
 // CheckHostWithSender fetches SPF records for `sender`'s domain, parses them,
@@ -159,6 +179,8 @@ func CheckHost(ip net.IP, domain string) (Result, error) {
 // The function returns a Result, which corresponds with the SPF result for
 // the check as per RFC, as well as an error for debugging purposes. Note that
 // the error may be non-nil even on successful checks.
+//
+// If `ip` is not a valid IP address, the result is PermError.
 //
 // Reference: https://tools.ietf.org/html/rfc7208#section-4
 func CheckHostWithSender(ip net.IP, helo, sender string, opts ...Option) (Result, error) {
@@ -180,6 +202,11 @@ func CheckHostWithSender(ip net.IP, helo, sender string, opts ...Option) (Result
 
 	for _, opt := range opts {
 		opt(r)
+	}
+
+	if !validIP(ip) {
+		r.trace("invalid ip %v", ip)
+		return PermError, ErrInvalidIPAddress
 	}
 
 	return r.Check(domain)
@@ -1059,6 +1086,10 @@ func ipToMacroStr(ip net.IP) string {
 	for _, b := range ip.To16() {
 		fmt.Fprintf(&sb, "%x.%x.", b>>4, b&0xf)
 	}
+
 	// Return the string without the trailing ".".
-	return sb.String()[:sb.Len()-1]
+	// Note that on an invalid address To16 returns nil, and the loop above
+	// writes nothing; the entry points reject those, but we take care not to
+	// assume the string is non-empty anyway.
+	return strings.TrimSuffix(sb.String(), ".")
 }
