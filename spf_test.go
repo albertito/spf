@@ -125,7 +125,11 @@ func TestIPv6(t *testing.T) {
 		{"v=spf1 ip6:2001:db8::68 ~all", Pass, ErrMatchedIP},
 		{"v=spf1 ip6:2001:db8::1/24 ~all", Pass, ErrMatchedIP},
 		{"v=spf1 ip6:2001:db8::1/100 ~all", Pass, ErrMatchedIP},
-		{"v=spf1 ptr -all", Pass, ErrMatchedPTR},
+		// "domain" is one of the PTR names for our IP, but it resolves to
+		// ip1111 and not to the IP we are checking, so it is not validated
+		// and the implicit "ptr" does not match.
+		// https://tools.ietf.org/html/rfc7208#section-5.5
+		{"v=spf1 ptr -all", Fail, ErrMatchedAll},
 		{"v=spf1 ptr:d6666 -all", Pass, ErrMatchedPTR},
 		{"v=spf1 ptr:sonlas6 -all", Pass, ErrMatchedPTR},
 		{"v=spf1 ptr:sonlas7 -all", Fail, ErrMatchedAll},

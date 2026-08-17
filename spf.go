@@ -614,18 +614,22 @@ func (r *resolution) ptrField(res Result, field, domain string) (bool, Result, e
 		}
 
 		for _, n := range ns {
-			// Validate the record by doing a forward resolution: it has to
-			// have some A/AAAA.
+			// Validate the name by doing a forward resolution: it is only
+			// validated if it resolves back to the IP we are checking.
+			// https://tools.ietf.org/html/rfc7208#section-5.5
 			addrs, err := r.resolver.LookupIPAddr(r.ctx, n)
 			if err != nil {
 				// RFC explicitly says to skip domains which error here.
 				continue
 			}
 			r.trace("ptr forward resolution %q -> %q", n, addrs)
-			if len(addrs) > 0 {
-				// Append the lower-case variants so we do a case-insensitive
-				// lookup below.
-				r.ipNames = append(r.ipNames, strings.ToLower(n))
+			for _, addr := range addrs {
+				if addr.IP.Equal(r.ip) {
+					// Append the lower-case variants so we do a
+					// case-insensitive lookup below.
+					r.ipNames = append(r.ipNames, strings.ToLower(n))
+					break
+				}
 			}
 		}
 	}

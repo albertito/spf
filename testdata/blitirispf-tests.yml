@@ -513,3 +513,54 @@ zonedata:
     - SPF: v=spf1 redirect=doesnotexist
   sender:
     - A: 1.2.3.4
+---
+description: PTR forward confirmation
+tests:
+  ptr-forward-confirmed:
+    description: |
+      A PTR name that resolves back to the IP being checked is validated, and
+      matches.
+    mailfrom: "foo@good.com"
+    host: 1.2.3.4
+    result: pass
+  ptr-resolves-elsewhere:
+    description: |
+      A PTR name that resolves, but to a different address, must NOT be
+      validated: RFC 7208 section 5.5 requires <ip> to be among the addresses
+      returned for the name, not just that the name resolves to something.
+    mailfrom: "foo@bad.com"
+    host: 1.2.3.4
+    result: fail
+  ptr-resolves-elsewhere-v6:
+    description: |
+      As above, but the name resolves to an address of a different family.
+    mailfrom: "foo@badv6.com"
+    host: 1.2.3.4
+    result: fail
+  ptr-one-of-many:
+    description: |
+      A name with several addresses is validated if any one of them is the IP
+      being checked.
+    mailfrom: "foo@many.com"
+    host: 1.2.3.4
+    result: pass
+zonedata:
+  good.com:
+    - SPF: v=spf1 ptr:good.com -all
+    - A: 1.2.3.4
+  bad.com:
+    - SPF: v=spf1 ptr:bad.com -all
+    - A: 9.9.9.9
+  badv6.com:
+    - SPF: v=spf1 ptr:badv6.com -all
+    - AAAA: 2001:db8::1
+  many.com:
+    - SPF: v=spf1 ptr:many.com -all
+    - A: 10.0.0.1
+    - A: 1.2.3.4
+    - A: 10.0.0.2
+  4.3.2.1.in-addr.arpa:
+    - PTR: good.com
+    - PTR: bad.com
+    - PTR: badv6.com
+    - PTR: many.com
