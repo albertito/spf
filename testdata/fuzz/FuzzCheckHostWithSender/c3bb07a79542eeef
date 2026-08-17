@@ -1,0 +1,2 @@
+go test fuzz v1
+string("v=spf1 mX:ܳ\xf1\xb60ԄЧӞ߃ɤ֭\xe7\xa30ě۩莙ϻ˼߷ӷҽѳ\xe6\xb4\ued38ޜǐ˟\xe6\xaf0͋\xe1\x8b0\u0ef2ϓСޝŃ\xe8\x8b0̆߭˽͚\xe9\xbd0\xe3\xad0ޱ۾/ ")

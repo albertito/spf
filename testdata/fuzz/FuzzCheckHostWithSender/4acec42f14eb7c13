@@ -1,0 +1,2 @@
+go test fuzz v1
+string("v=spf1 ptr:\xff\xce0\xa5\xde A\x82")

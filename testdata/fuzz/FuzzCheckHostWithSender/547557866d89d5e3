@@ -1,0 +1,2 @@
+go test fuzz v1
+string("v=spf1 redirect=000000000000000\x900000000")

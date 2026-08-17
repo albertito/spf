@@ -1,0 +1,2 @@
+go test fuzz v1
+string("v=spf1 A:d1111 A:d1110/0 A:d1110/0")

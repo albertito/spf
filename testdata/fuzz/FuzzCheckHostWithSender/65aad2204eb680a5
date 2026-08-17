@@ -1,0 +1,2 @@
+go test fuzz v1
+string("v=s\x10\x00r\x00eXists:%{X\x00}")

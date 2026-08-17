@@ -1,0 +1,2 @@
+go test fuzz v1
+string("v=spf1 exists:00000aaa\x88A0AAAAAA0")

@@ -1,0 +1,2 @@
+go test fuzz v1
+string("v=spf1 ԨӿՉװǮЧ\u074c̬͘ږךșݢƺЄЫөˋأՂłЕ")

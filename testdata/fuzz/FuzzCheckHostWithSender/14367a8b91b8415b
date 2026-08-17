@@ -1,0 +1,2 @@
+go test fuzz v1
+string("000000000000aaaa0aaaaaaa0aaa00aa\x880")
