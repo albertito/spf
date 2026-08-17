@@ -37,7 +37,7 @@ func main() {
 
 	opts := []spf.Option{}
 	if *debug {
-		traceF := func(f string, a ...interface{}) {
+		traceF := func(f string, a ...any) {
 			fmt.Printf("debug: "+f+"\n", a...)
 		}
 		opts = append(opts, spf.WithTraceFunc(traceF))

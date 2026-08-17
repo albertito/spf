@@ -6,6 +6,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"slices"
 	"strings"
 	"testing"
 
@@ -124,7 +125,7 @@ type MX struct {
 }
 
 func (mx *MX) UnmarshalYAML(value *yaml.Node) error {
-	seq := []interface{}{}
+	seq := []any{}
 	if err := value.Decode(&seq); err != nil {
 		return err
 	}
@@ -266,12 +267,7 @@ func testRFC(t *testing.T, fname string) {
 }
 
 func resultIn(got Result, exp []string) bool {
-	for _, e := range exp {
-		if e == string(got) {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(exp, string(got))
 }
 
 // Take a reverse-dns host name of the form:
@@ -288,7 +284,7 @@ func reverseDNS(t *testing.T, r string) net.IP {
 
 		// Break down in pieces, and construct the ipv4 string backwards.
 		pieces := strings.Split(r, ".")
-		for i := 0; i < len(pieces); i++ {
+		for i := range pieces {
 			s += pieces[len(pieces)-1-i] + "."
 		}
 		s = s[:len(s)-1]
@@ -298,7 +294,7 @@ func reverseDNS(t *testing.T, r string) net.IP {
 
 		// Break down in pieces, and construct the ipv6 string backwards.
 		pieces := strings.Split(r, ".")
-		for i := 0; i < len(pieces); i++ {
+		for i := range pieces {
 			s += pieces[len(pieces)-1-i]
 			if i%4 == 3 {
 				s += ":"

@@ -23,6 +23,7 @@ import (
 	"net"
 	"net/url"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -32,7 +33,7 @@ import (
 type Result string
 
 // Valid results.
-var (
+const (
 	// https://tools.ietf.org/html/rfc7208#section-8.1
 	// Not able to reach any conclusion.
 	None = Result("none")
@@ -114,10 +115,10 @@ const (
 )
 
 // TraceFunc is the type of tracing functions.
-type TraceFunc func(f string, a ...interface{})
+type TraceFunc func(f string, a ...any)
 
 var (
-	nullTrace    = func(f string, a ...interface{}) {}
+	nullTrace    = func(f string, a ...any) {}
 	defaultTrace = nullTrace
 )
 
@@ -147,7 +148,7 @@ func CheckHost(ip net.IP, domain string) (Result, error) {
 		maxvoidcount: defaultMaxVoidLookups,
 		helo:         domain,
 		sender:       "@" + domain,
-		ctx:          context.TODO(),
+		ctx:          context.Background(),
 		resolver:     defaultResolver,
 		trace:        defaultTrace,
 	}
@@ -195,7 +196,7 @@ func CheckHostWithSender(ip net.IP, helo, sender string, opts ...Option) (Result
 		maxvoidcount: defaultMaxVoidLookups,
 		helo:         helo,
 		sender:       sender,
-		ctx:          context.TODO(),
+		ctx:          context.Background(),
 		resolver:     defaultResolver,
 		trace:        defaultTrace,
 	}
@@ -481,13 +482,14 @@ func (r *resolution) getDNSRecord(domain string) (string, error) {
 	// 1 record is what we expect, return the record.
 	// More than that, it's a permanent error:
 	// https://tools.ietf.org/html/rfc7208#section-4.5
-	l := len(records)
-	if l == 0 {
+	switch len(records) {
+	case 0:
 		return "", nil
-	} else if l == 1 {
+	case 1:
 		return records[0], nil
+	default:
+		return "", ErrMultipleRecords
 	}
-	return "", ErrMultipleRecords
 }
 
 func isTemporary(err error) bool {
@@ -937,19 +939,19 @@ func (r *resolution) expandMacros(s, domain string) (string, error) {
 	macroS := ""
 
 	var err error
-	n := ""
+	var n strings.Builder
 	for _, c := range s {
 		if afterPercent {
 			afterPercent = false
 			switch c {
 			case '%':
-				n += "%"
+				n.WriteString("%")
 				continue
 			case '_':
-				n += " "
+				n.WriteString(" ")
 				continue
 			case '-':
-				n += "%20"
+				n.WriteString("%20")
 				continue
 			case '{':
 				inMacroDefinition = true
@@ -1033,14 +1035,12 @@ func (r *resolution) expandMacros(s, domain string) (string, error) {
 
 			// Reverse if requested.
 			if reverse {
-				reverseStrings(split)
+				slices.Reverse(split)
 			}
 
 			// Leave the last $digits fields, if given.
 			if digits > 0 {
-				if digits > len(split) {
-					digits = len(split)
-				}
+				digits = min(digits, len(split))
 				split = split[len(split)-digits:]
 			}
 
@@ -1054,24 +1054,18 @@ func (r *resolution) expandMacros(s, domain string) (string, error) {
 				str = url.QueryEscape(str)
 			}
 
-			n += str
+			n.WriteString(str)
 			continue
 		}
 		if c == '%' {
 			afterPercent = true
 			continue
 		}
-		n += string(c)
+		n.WriteString(string(c))
 	}
 
-	r.trace("macro expanded %q to %q", s, n)
-	return n, nil
-}
-
-func reverseStrings(a []string) {
-	for left, right := 0, len(a)-1; left < right; left, right = left+1, right-1 {
-		a[left], a[right] = a[right], a[left]
-	}
+	r.trace("macro expanded %q to %q", s, n.String())
+	return n.String(), nil
 }
 
 func ipToMacroStr(ip net.IP) string {

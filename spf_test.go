@@ -801,7 +801,7 @@ func TestBadResolverResponse(t *testing.T) {
 
 func TestWithTraceFunc(t *testing.T) {
 	calls := 0
-	var trace TraceFunc = func(f string, a ...interface{}) {
+	var trace TraceFunc = func(f string, a ...any) {
 		calls++
 		t.Logf("tracing "+f, a...)
 	}
