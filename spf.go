@@ -969,9 +969,11 @@ func (r *resolution) redirectField(field, domain string) (Result, error) {
 }
 
 // Group extraction of macro-string from the formal specification.
+// Note this is anchored: the macro body must match it entirely, otherwise we
+// would accept invalid characters around a valid macro letter.
 // https://tools.ietf.org/html/rfc7208#section-7.1
 var macroRegexp = regexp.MustCompile(
-	`([slodiphcrtvSLODIPHCRTV])([0-9]+)?([rR])?([-.+,/_=]+)?`)
+	`^([slodiphcrtvSLODIPHCRTV])([0-9]+)?([rR])?([-.+,/_=]+)?$`)
 
 // Expand macros, return the expanded string.
 // This expects to be passed the domain-spec within a field, not an entire
@@ -1124,6 +1126,14 @@ func (r *resolution) expandMacros(s, domain string) (string, error) {
 			continue
 		}
 		n.WriteString(string(c))
+	}
+
+	// If we got to the end of the string in the middle of a macro, it is
+	// unterminated and therefore invalid. Otherwise we would silently return
+	// a truncated value.
+	if afterPercent || inMacroDefinition {
+		r.trace("macro not terminated")
+		return "", ErrInvalidMacro
 	}
 
 	r.trace("macro expanded %q to %q", s, n.String())

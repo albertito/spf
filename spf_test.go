@@ -690,10 +690,83 @@ func TestIPToMacroStr(t *testing.T) {
 	}
 }
 
+func TestValidMacro(t *testing.T) {
+	// Test that valid macros are expanded, and in particular that the macro
+	// grammar is not tightened too much: each of these exercises a different
+	// combination of the optional transformers.
+	r := resolution{
+		ip:     ip1111,
+		sender: "user@a.b.example.com",
+		helo:   "helo",
+		trace:  t.Logf,
+	}
+
+	cases := []struct {
+		macro string
+		out   string
+	}{
+		{"%{d}", "a.b.example.com"},
+		{"%{d4}", "a.b.example.com"},
+		{"%{d9}", "a.b.example.com"},
+		{"%{d2}", "example.com"},
+		{"%{dr}", "com.example.b.a"},
+		{"%{d2r}", "b.a"},
+		{"%{dR}", "com.example.b.a"},
+		{"%{l}", "user"},
+		{"%{o}", "a.b.example.com"},
+		{"%{h}", "helo"},
+		{"%{i}", "1.1.1.1"},
+		{"%{v}", "in-addr"},
+		{"%{ir}", "1.1.1.1"},
+
+		// Explicit delimiters, alone and combined with the rest.
+		{"%{d-}", "a.b.example.com"},
+		{"%{o.-}", "a.b.example.com"},
+		{"%{l+}", "user"},
+		{"%{s_}", "user@a.b.example.com"},
+
+		// Uppercase letters mean the result is URL-escaped.
+		{"%{S}", "user%40a.b.example.com"},
+		{"%{D2}", "example.com"},
+
+		// Literals and escapes around the macros.
+		{"foo.%{d}.bar", "foo.a.b.example.com.bar"},
+		{"%%", "%"},
+		{"%_", " "},
+		{"%-", "%20"},
+		{"%{d}%{l}", "a.b.example.comuser"},
+		{"no-macros-here", "no-macros-here"},
+	}
+
+	for _, c := range cases {
+		out, err := r.expandMacros(c.macro, "a.b.example.com")
+		if err != nil {
+			t.Errorf("%q: unexpected error %v", c.macro, err)
+		}
+		if out != c.out {
+			t.Errorf("%q: expected %q, got %q", c.macro, c.out, out)
+		}
+	}
+}
+
 func TestInvalidMacro(t *testing.T) {
 	// Test that the macro expansion detects some invalid macros.
 	macros := []string{
+		// Unknown macro letters.
 		"%{x}", "%{z}", "%{c}", "%{r}", "%{t}",
+
+		// Junk around an otherwise valid macro letter: the macro body has
+		// to match the grammar entirely.
+		"%{zzd}", "%{ssss}", "%{d!}", "%{s1x}", "%{1d}", "%{dr2}",
+		"%{d2rr}", "%{}", "%{ }", "%{d }",
+
+		// Unterminated macros: we must not silently return the truncated
+		// value expanded so far.
+		"%{d", "foo%{d", "foo%{", "foo%", "%",
+		"foo%{d2r", "%{d}%{s",
+
+		// Invalid character right after the "%".
+		"%d", "%a{d}", "% ",
 	}
 	for _, macro := range macros {
 		r := resolution{
