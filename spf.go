@@ -318,6 +318,17 @@ type resolution struct {
 	trace TraceFunc
 }
 
+// A modifier is a name and a value, separated by "=":
+//
+//	modifier = redirect / explanation / unknown-modifier
+//	unknown-modifier = name "=" macro-string
+//	name = ALPHA *( ALPHA / DIGIT / "-" / "_" / "." )
+//
+// Note the "=" comes before any ":" or "/", which is what tells modifiers
+// apart from mechanisms.
+// https://tools.ietf.org/html/rfc7208#section-4.6.1
+var modifierRegexp = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9._-]*=`)
+
 var aField = regexp.MustCompile(`^(a$|a:|a/)`)
 var mxField = regexp.MustCompile(`^(mx$|mx:|mx/)`)
 var ptrField = regexp.MustCompile(`^(ptr$|ptr:)`)
@@ -385,6 +396,13 @@ func (r *resolution) Check(domain string) (Result, error) {
 			continue
 		}
 
+		// Is this a modifier? Note we check this before stripping the
+		// qualifier below, because modifiers don't take one:
+		//   directive = [ qualifier ] mechanism
+		//   modifier  = redirect / explanation / unknown-modifier
+		// https://tools.ietf.org/html/rfc7208#section-4.6.1
+		isModifier := modifierRegexp.MatchString(field)
+
 		// See if we have a qualifier, defaulting to + (pass).
 		// https://tools.ietf.org/html/rfc7208#section-4.6.2
 		result, ok := qualToResult[field[0]]
@@ -439,6 +457,12 @@ func (r *resolution) Check(domain string) (Result, error) {
 			res, err := r.redirectField(field, domain)
 			r.trace("%q: %v, %v", field, res, err)
 			return res, err
+		} else if isModifier {
+			// Unrecognized modifiers must be ignored, so that records
+			// using modifiers defined elsewhere still work.
+			// https://tools.ietf.org/html/rfc7208#section-6
+			r.trace("unknown modifier, ignoring")
+			continue
 		} else {
 			r.trace("unknown field, permerror")
 			return PermError, ErrUnknownField

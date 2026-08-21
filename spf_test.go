@@ -78,6 +78,25 @@ func TestBasic(t *testing.T) {
 		{"v=spf1 blah", PermError, ErrUnknownField},
 		{"v=spf1 exists:d1111 -all", Pass, ErrMatchedExists},
 		{"v=spf1 redirect=", PermError, ErrInvalidDomain},
+
+		// Unrecognized modifiers are ignored, so evaluation continues.
+		// https://tools.ietf.org/html/rfc7208#section-6
+		{"v=spf1 ra=postmaster -all", Fail, ErrMatchedAll},
+		{"v=spf1 rp=100 -all", Fail, ErrMatchedAll},
+		{"v=spf1 rr=e ip4:1.1.1.1 -all", Pass, ErrMatchedIP},
+		{"v=spf1 moo.cow-far_out=man:dog/cat ip4:1.1.1.1 -all", Pass, ErrMatchedIP},
+		{"v=spf1 x=%{d} -all", Fail, ErrMatchedAll},
+		{"v=spf1 a1=x a2=y a3=z -all", Fail, ErrMatchedAll},
+
+		// But the name has to be valid: it starts with a letter, and the
+		// "=" comes before any ":" or "/".
+		{"v=spf1 moo.cow/far_out=man -all", PermError, ErrUnknownField},
+		{"v=spf1 moo.cow:far_out=man -all", PermError, ErrUnknownField},
+		{"v=spf1 1abc=x -all", PermError, ErrUnknownField},
+		{"v=spf1 =x -all", PermError, ErrUnknownField},
+
+		// Modifiers take no qualifier, so this is not one.
+		{"v=spf1 -ra=postmaster all", PermError, ErrUnknownField},
 	}
 
 	dns.Ip["d1111"] = []net.IP{ip1111}

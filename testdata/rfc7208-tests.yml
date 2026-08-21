@@ -419,7 +419,6 @@ tests:
     host: 1.2.3.4
     mailfrom: foo@t2.example.com
     result: pass
-    skip: We don't enforce the domain charset.
   modifier-charset-bad1:
     description: >-
       '=' character immediately after the name and before any ":" or "/"
