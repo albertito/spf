@@ -79,6 +79,20 @@ func TestBasic(t *testing.T) {
 		{"v=spf1 exists:d1111 -all", Pass, ErrMatchedExists},
 		{"v=spf1 redirect=", PermError, ErrInvalidDomain},
 
+		// An empty domain-spec is not allowed; it must not be silently
+		// treated as the current domain.
+		// https://tools.ietf.org/html/rfc7208#section-5.3
+		{"v=spf1 a: -all", PermError, ErrInvalidDomain},
+		{"v=spf1 mx: -all", PermError, ErrInvalidDomain},
+		{"v=spf1 a:/24 -all", PermError, ErrInvalidMask},
+		{"v=spf1 mx:/24 -all", PermError, ErrInvalidMask},
+		{"v=spf1 a:// -all", PermError, ErrInvalidMask},
+
+		// While the ones with an actual domain still work.
+		{"v=spf1 a:d1111 -all", Pass, ErrMatchedA},
+		{"v=spf1 a -all", Fail, ErrMatchedAll},
+		{"v=spf1 mx -all", Fail, ErrMatchedAll},
+
 		// Unrecognized modifiers are ignored, so evaluation continues.
 		// https://tools.ietf.org/html/rfc7208#section-6
 		{"v=spf1 ra=postmaster -all", Fail, ErrMatchedAll},

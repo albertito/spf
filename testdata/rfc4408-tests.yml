@@ -919,7 +919,6 @@ tests:
     host: 1.2.3.4
     mailfrom: foo@e13.example.com
     result: permerror
-    skip: Not worth the complexity of erroring on this.
 zonedata:
   mail.example.com:
     - A: 1.2.3.4
@@ -1284,7 +1283,6 @@ tests:
     host: 1.2.3.4
     mailfrom: foo@e13.example.com
     result: permerror
-    skip: Not worth the complexity of erroring on this.
 zonedata:
   mail.example.com:
     - A: 1.2.3.4

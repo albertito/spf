@@ -852,32 +852,37 @@ var mxRegexp = regexp.MustCompile(`^[mM][xX](:([^/]+))?(/(\w+))?(//(\w+))?$`)
 func domainAndMask(re *regexp.Regexp, field, domain string) (string, dualMasks, error) {
 	masks := dualMasks{}
 	groups := re.FindStringSubmatch(field)
-	if groups != nil {
-		if groups[2] != "" {
-			domain = groups[2]
+	if groups == nil {
+		// In the regexp we enforce that if ":" is used, there must be a
+		// domain after it, and if "/" is used, there must be at least one
+		// character after it. So if we found no groups, it must be malformed.
+		// For example, "a:", "mx:/24", "a//", "a:x/".
+		// We use the presence of "/" to decide which error to return.
+		// https://tools.ietf.org/html/rfc7208#section-5.3
+		if strings.Contains(field, "/") {
+			return "", masks, ErrInvalidMask
 		}
-		if groups[4] != "" {
-			i, err := strconv.Atoi(groups[4])
-			mask4 := net.CIDRMask(i, 32)
-			if err != nil || mask4 == nil {
-				return "", masks, ErrInvalidMask
-			}
-			masks.v4 = mask4
-		}
-		if groups[6] != "" {
-			i, err := strconv.Atoi(groups[6])
-			mask6 := net.CIDRMask(i, 128)
-			if err != nil || mask6 == nil {
-				return "", masks, ErrInvalidMask
-			}
-			masks.v6 = mask6
-		}
+		return "", masks, ErrInvalidDomain
 	}
 
-	// Test to catch malformed entries: if there's a /, there must be at least
-	// one mask.
-	if strings.Contains(field, "/") && masks.v4 == nil && masks.v6 == nil {
-		return "", masks, ErrInvalidMask
+	if groups[2] != "" {
+		domain = groups[2]
+	}
+	if groups[4] != "" {
+		i, err := strconv.Atoi(groups[4])
+		mask4 := net.CIDRMask(i, 32)
+		if err != nil || mask4 == nil {
+			return "", masks, ErrInvalidMask
+		}
+		masks.v4 = mask4
+	}
+	if groups[6] != "" {
+		i, err := strconv.Atoi(groups[6])
+		mask6 := net.CIDRMask(i, 128)
+		if err != nil || mask6 == nil {
+			return "", masks, ErrInvalidMask
+		}
+		masks.v6 = mask6
 	}
 
 	return domain, masks, nil
