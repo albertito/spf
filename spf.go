@@ -329,6 +329,19 @@ type resolution struct {
 // https://tools.ietf.org/html/rfc7208#section-4.6.1
 var modifierRegexp = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9._-]*=`)
 
+// isNamedModifier returns whether the given term is the modifier with the
+// given name, like "redirect" or "exp".
+//
+// Modifier names are case-insensitive (on ASCII, as per the ABNF), and take
+// no qualifier, so this must be given the term before any qualifier has been
+// stripped from it.
+// https://tools.ietf.org/html/rfc7208#section-4.6.1
+func isNamedModifier(field, name string) bool {
+	return len(field) > len(name) &&
+		field[len(name)] == '=' &&
+		asciiEqualFold(field[:len(name)], name)
+}
+
 var aField = regexp.MustCompile(`^(a$|a:|a/)`)
 var mxField = regexp.MustCompile(`^(mx$|mx:|mx/)`)
 var ptrField = regexp.MustCompile(`^(ptr$|ptr:)`)
@@ -368,9 +381,12 @@ func (r *resolution) Check(domain string) (Result, error) {
 
 	// Redirects must be handled after the rest; instead of having two loops,
 	// we just move them to the end.
+	// Note this has to be consistent with how we recognize the modifier
+	// below, otherwise a redirect could be evaluated in place, and bypass the
+	// check for duplicates.
 	var newfields, redirects []string
 	for _, field := range fields {
-		if strings.HasPrefix(field, "redirect=") {
+		if isNamedModifier(field, "redirect") {
 			redirects = append(redirects, field)
 		} else {
 			newfields = append(newfields, field)
@@ -396,11 +412,13 @@ func (r *resolution) Check(domain string) (Result, error) {
 			continue
 		}
 
-		// Is this a modifier? Note we check this before stripping the
+		// Is this a modifier? Note we check these before stripping the
 		// qualifier below, because modifiers don't take one:
 		//   directive = [ qualifier ] mechanism
 		//   modifier  = redirect / explanation / unknown-modifier
 		// https://tools.ietf.org/html/rfc7208#section-4.6.1
+		isExp := isNamedModifier(field, "exp")
+		isRedirect := isNamedModifier(field, "redirect")
 		isModifier := modifierRegexp.MatchString(field)
 
 		// See if we have a qualifier, defaulting to + (pass).
@@ -450,10 +468,10 @@ func (r *resolution) Check(domain string) (Result, error) {
 				r.trace("%q %v, %v", field, res, err)
 				return res, err
 			}
-		} else if strings.HasPrefix(lfield, "exp=") {
+		} else if isExp {
 			r.trace("exp= ignored")
 			continue
-		} else if strings.HasPrefix(lfield, "redirect=") {
+		} else if isRedirect {
 			res, err := r.redirectField(field, domain)
 			r.trace("%q: %v, %v", field, res, err)
 			return res, err

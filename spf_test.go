@@ -304,16 +304,71 @@ func TestRedirectOrder(t *testing.T) {
 	dns.Txt["faildom"] = []string{"v=spf1 -all"}
 	defaultTrace = t.Logf
 
-	dns.Txt["domain"] = []string{"v=spf1 redirect=faildom"}
-	res, err := CheckHost(ip1111, "domain")
-	if res != Fail || err != ErrMatchedAll {
-		t.Errorf("expected fail, got %v (%v)", res, err)
+	// Modifier names are case-insensitive, so how the modifier is spelled
+	// must not change whether it is deferred to the end.
+	// https://tools.ietf.org/html/rfc7208#section-4.6.1
+	cases := []struct {
+		txt string
+		res Result
+	}{
+		{"v=spf1 redirect=faildom", Fail},
+		{"v=spf1 redirect=faildom all", Pass},
+		{"v=spf1 Redirect=faildom", Fail},
+		{"v=spf1 Redirect=faildom all", Pass},
+		{"v=spf1 REDIRECT=faildom all", Pass},
+		{"v=spf1 ReDiReCt=faildom all", Pass},
 	}
 
-	dns.Txt["domain"] = []string{"v=spf1 redirect=faildom all"}
-	res, err = CheckHost(ip1111, "domain")
-	if res != Pass || err != ErrMatchedAll {
-		t.Errorf("expected pass, got %v (%v)", res, err)
+	for _, c := range cases {
+		dns.Txt["domain"] = []string{c.txt}
+		res, err := CheckHost(ip1111, "domain")
+		if res != c.res || err != ErrMatchedAll {
+			t.Errorf("%q: expected %v, got %v (%v)", c.txt, c.res, res, err)
+		}
+	}
+}
+
+func TestModifierNames(t *testing.T) {
+	dns := NewDefaultResolver()
+	dns.Txt["alldom"] = []string{"v=spf1 +all"}
+	defaultTrace = t.Logf
+
+	cases := []struct {
+		txt string
+		res Result
+		err error
+	}{
+		// At most one redirect is allowed, and the check must not depend on
+		// how each of them is spelled.
+		// https://tools.ietf.org/html/rfc7208#section-6
+		{"v=spf1 redirect=alldom redirect=alldom", PermError, ErrInvalidDomain},
+		{"v=spf1 redirect=alldom Redirect=alldom", PermError, ErrInvalidDomain},
+		{"v=spf1 Redirect=alldom REDIRECT=alldom", PermError, ErrInvalidDomain},
+
+		// A single one is fine, either way.
+		{"v=spf1 redirect=alldom", Pass, ErrMatchedAll},
+		{"v=spf1 Redirect=alldom", Pass, ErrMatchedAll},
+
+		// "exp" is ignored, in any case.
+		{"v=spf1 exp=blah +all", Pass, ErrMatchedAll},
+		{"v=spf1 Exp=blah +all", Pass, ErrMatchedAll},
+		{"v=spf1 EXP=blah +all", Pass, ErrMatchedAll},
+
+		// Modifiers take no qualifier, so these are not modifiers, and not
+		// valid mechanisms either.
+		// https://tools.ietf.org/html/rfc7208#section-4.6.1
+		{"v=spf1 -redirect=alldom all", PermError, ErrUnknownField},
+		{"v=spf1 +redirect=alldom all", PermError, ErrUnknownField},
+		{"v=spf1 -exp=blah all", PermError, ErrUnknownField},
+	}
+
+	for _, c := range cases {
+		dns.Txt["domain"] = []string{c.txt}
+		res, err := CheckHost(ip1111, "domain")
+		if res != c.res || err != c.err {
+			t.Errorf("%q: expected [%v/%v], got [%v/%v]",
+				c.txt, c.res, c.err, res, err)
+		}
 	}
 }
 
