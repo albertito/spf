@@ -2,7 +2,7 @@
 # blitiri.com.ar/go/spf
 
 [![GoDoc](https://godoc.org/blitiri.com.ar/go/spf?status.svg)](https://pkg.go.dev/blitiri.com.ar/go/spf)
-[![Tests Status](https://img.shields.io/github/checks-status/albertito/spf/master)](https://github.com/albertito/spf/actions)
+[![Tests Status](https://img.shields.io/github/checks-status/albertito/spf/main)](https://github.com/albertito/spf/actions)
 [![Coverage Status](https://coveralls.io/repos/github/albertito/spf/badge.svg?branch=next)](https://coveralls.io/github/albertito/spf)
 
 [spf](https://godoc.org/blitiri.com.ar/go/spf) is an open source
