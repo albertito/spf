@@ -622,3 +622,564 @@ zonedata:
     - A: 1.2.3.7
   7.3.2.1.in-addr.arpa:
     - PTR: dotname.com
+---
+description: Macro context in recursive evaluations
+tests:
+  include-macro-d:
+    description: |
+      The %{d} macro inside an included record expands to the included
+      domain, not the original one: RFC 7208 section 5.2 says check_host()
+      is evaluated with the include's target as <domain>, and section 7.2
+      defines d = <domain>.
+      If %{d} was (incorrectly) expanded to the original domain, the exists
+      would not match, and the check would fail.
+    spec: 5.2/3, 7.2
+    mailfrom: "foo@senderd.net"
+    host: 1.2.3.4
+    result: pass
+  include-macro-sender:
+    description: |
+      The %{l} and %{o} macros inside an included record still refer to the
+      original <sender>: RFC 7208 section 5.2 says the <sender> argument
+      remains the same in the recursive evaluation, and section 7.3 notes
+      that %{s}, %{l} and %{o} remain the same during recursive and chained
+      evaluations.
+      If they were (incorrectly) taken from the included domain, the exists
+      would not match, and the check would fail.
+    spec: 5.2/3, 7.3/23
+    mailfrom: "foo@senders.net"
+    host: 1.2.3.4
+    result: pass
+  redirect-macro-d:
+    description: |
+      Like include-macro-d, but for "redirect": RFC 7208 section 6.1 says
+      check_host() is evaluated with the redirect target as <domain>.
+    spec: 6.1/3, 7.2
+    mailfrom: "foo@rsenderd.net"
+    host: 1.2.3.4
+    result: pass
+  redirect-macro-sender:
+    description: |
+      Like include-macro-sender, but for "redirect": RFC 7208 section 6.1
+      says the <sender> argument remains the same after a redirect.
+    spec: 6.1/3, 7.3/23
+    mailfrom: "foo@rsenders.net"
+    host: 1.2.3.4
+    result: pass
+zonedata:
+  senderd.net:
+    - SPF: v=spf1 include:incd.net -all
+  incd.net:
+    - SPF: v=spf1 exists:d.%{d} -all
+  d.incd.net:
+    - A: 127.0.0.2
+
+  senders.net:
+    - SPF: v=spf1 include:incs.net -all
+  incs.net:
+    - SPF: v=spf1 exists:%{l}.%{o}.sendermacro.net -all
+  foo.senders.net.sendermacro.net:
+    - A: 127.0.0.2
+
+  rsenderd.net:
+    - SPF: v=spf1 redirect=rincd.net
+  rincd.net:
+    - SPF: v=spf1 exists:d.%{d} -all
+  d.rincd.net:
+    - A: 127.0.0.2
+
+  rsenders.net:
+    - SPF: v=spf1 redirect=rincs.net
+  rincs.net:
+    - SPF: v=spf1 exists:%{l}.%{o}.rsendermacro.net -all
+  foo.rsenders.net.rsendermacro.net:
+    - A: 127.0.0.2
+---
+description: Case-insensitivity of mechanism, modifier, and version names
+tests:
+  upper-version:
+    description: |
+      The version section is case-insensitive: RFC 7208 section 12 says
+      literal text strings in the ABNF are case-insensitive, and the record
+      grammar defines version = "v=spf1".
+    spec: 4.5/3, 12/2
+    mailfrom: "foo@verup.net"
+    host: 1.2.3.4
+    result: fail
+  upper-ip4-all:
+    description: |
+      Mechanism names are case-insensitive: RFC 7208 section 12 says "mx"
+      matches "mx", "MX", "mX" and "Mx"; the same applies to every
+      mechanism name.
+    spec: 4.6.1/9, 12/2
+    mailfrom: "foo@ip4up.net"
+    host: 1.2.3.4
+    result: pass
+  upper-all:
+    description: |
+      "ALL" with a qualifier is the "all" mechanism.
+    spec: 4.6.1/9, 12/2
+    mailfrom: "foo@allup.net"
+    host: 1.2.3.4
+    result: softfail
+  upper-a:
+    description: |
+      A bare uppercase "A" is the "a" mechanism.
+    spec: 4.6.1/9, 12/2
+    mailfrom: "foo@aup.net"
+    host: 1.2.3.4
+    result: pass
+  upper-mx:
+    description: |
+      A bare uppercase "MX" is the "mx" mechanism.
+    spec: 4.6.1/9, 12/2
+    mailfrom: "foo@mxup.net"
+    host: 1.2.3.4
+    result: pass
+  upper-include-exists:
+    description: |
+      Uppercase "INCLUDE:" and "EXISTS:" (with their domain argument) work
+      like their lowercase versions.
+    spec: 4.6.1/9, 12/2
+    mailfrom: "foo@incup.net"
+    host: 1.2.3.4
+    result: pass
+  upper-ptr:
+    description: |
+      A bare uppercase "PTR" is the "ptr" mechanism.
+    spec: 4.6.1/9, 12/2
+    mailfrom: "foo@ptrup.net"
+    host: 1.2.3.4
+    result: pass
+  upper-redirect:
+    description: |
+      Modifier names are case-insensitive too: "REDIRECT=" is the
+      "redirect" modifier, not an unknown modifier to be ignored.
+    spec: 4.6.1/9, 12/2
+    mailfrom: "foo@redirup.net"
+    host: 1.2.3.4
+    result: pass
+  redirect-mixed-case-duplicate:
+    description: |
+      Duplicate modifier detection must be case-insensitive as well:
+      "redirect" appearing twice is a permerror (RFC 7208 section 6), even
+      if spelled with different case each time.
+    spec: 6/2, 12/2
+    mailfrom: "foo@redirdup.net"
+    host: 1.2.3.4
+    result: permerror
+zonedata:
+  verup.net:
+    - SPF: V=SPF1 -ALL
+  ip4up.net:
+    - SPF: v=spf1 IP4:1.2.3.4 -ALL
+  allup.net:
+    - SPF: v=spf1 ~ALL
+  aup.net:
+    - SPF: v=spf1 A -all
+    - A: 1.2.3.4
+  mxup.net:
+    - SPF: v=spf1 MX -all
+    - MX: [10, mxhost.mxup.net]
+  mxhost.mxup.net:
+    - A: 1.2.3.4
+  incup.net:
+    - SPF: v=spf1 INCLUDE:incup2.net -all
+  incup2.net:
+    - SPF: v=spf1 EXISTS:existup.net -all
+  existup.net:
+    - A: 127.0.0.2
+  ptrup.net:
+    - SPF: v=spf1 PTR -all
+    - A: 1.2.3.4
+  4.3.2.1.in-addr.arpa:
+    - PTR: ptrup.net
+  redirup.net:
+    - SPF: v=spf1 REDIRECT=redirtarget.net
+  redirdup.net:
+    - SPF: v=spf1 redirect=redirtarget.net ReDirEct=redirtarget.net
+  redirtarget.net:
+    - SPF: v=spf1 ip4:1.2.3.4 -all
+---
+description: Macro expansion details
+tests:
+  macro-digit-exceeds-parts:
+    description: |
+      RFC 7208 section 7.3: if the DIGIT transformer specifies more parts
+      than are available, all the available parts are used; and
+      implementations MUST support a DIGIT value of at least 127.
+    spec: 7.3/20
+    mailfrom: "foo@macrod.net"
+    host: 1.2.3.4
+    result: pass
+  macro-digit-zero:
+    description: |
+      RFC 7208 section 7.3: if a DIGIT is specified, the value MUST be
+      nonzero; a zero value is a syntax error.
+    spec: 7.3/20
+    mailfrom: "foo@zerod.net"
+    host: 1.2.3.4
+    result: permerror
+  macro-v-ip4:
+    description: |
+      The %{v} macro expands to "in-addr" for IPv4 connections.
+      The existing rfc7208-tests.yml tests for %{v} only observe it through
+      the explanation string, which our test runner ignores; this one is
+      observable through the result.
+    spec: 7.2/3
+    mailfrom: "foo@macrov.net"
+    host: 1.2.3.4
+    result: pass
+  macro-v-ip6:
+    description: |
+      The %{v} macro expands to "ip6" for IPv6 connections, and %{ir}
+      expands to the reversed dot-format (nibble) address. This is the
+      expansion example from RFC 7208 section 7.4.
+    spec: 7.2/3, 7.3/21, 7.4
+    mailfrom: "foo@macrov.net"
+    host: 2001:db8::cb01
+    result: pass
+  macro-upper-escape:
+    description: |
+      Uppercase macros expand as their lowercase equivalents and are then
+      URL escaped; characters not in the "unreserved" set MUST be escaped.
+      Here %{S} expands the sender and escapes the "@" as "%40".
+      The existing test for this (upper-macro) only observes it through the
+      explanation string, which our test runner ignores.
+    spec: 7.3/26
+    mailfrom: "bar@escape.net"
+    host: 1.2.3.4
+    result: pass
+  macro-p-unknown:
+    description: |
+      RFC 7208 section 7.3: if there are no validated domain names for the
+      %{p} macro (here, <ip> has no PTR records), the string "unknown" is
+      used.
+    comment: |
+      We always expand %{p} to "unknown" without doing the PTR lookup, which
+      happens to be the RFC-mandated result for this test. Note that the
+      RFC also says the lookup counts against the processing limits
+      (section 4.6.4), which we consequently don't do; that is not tested
+      here.
+    spec: 7.3/22
+    mailfrom: "foo@pmacro.net"
+    host: 1.2.3.4
+    result: pass
+  macro-postmaster-empty-local:
+    description: |
+      RFC 7208 section 4.3: if the <sender> has no local-part, the string
+      "postmaster" is substituted for the local-part; %{l} must then expand
+      to "postmaster".
+      The existing test for this (nolocalpart) only observes it through the
+      explanation string, which our test runner ignores.
+    spec: 4.3/2, 7.3/23
+    mailfrom: "@nolocal.net"
+    host: 1.2.3.4
+    result: pass
+    skip: We don't substitute "postmaster" for an empty local-part.
+  macro-postmaster-null-sender:
+    description: |
+      Like macro-postmaster-empty-local, but with a completely null sender:
+      per RFC 7208 section 2.4, the "MAIL FROM" identity is then taken to
+      be postmaster@<HELO identity>, so %{l} must expand to "postmaster".
+    spec: 2.4/2, 4.3/2
+    helo: hel.nullsender.net
+    mailfrom: ""
+    host: 1.2.3.4
+    result: pass
+    skip: We don't substitute "postmaster" for an empty local-part.
+  macro-empty-parts:
+    description: |
+      RFC 7208 section 7.3: no special treatment is given to consecutive
+      delimiters in macro values, so the list of parts might contain empty
+      strings, which are then rejoined with dots. A local-part of "a..b"
+      must therefore expand (via %{l}) to "a..b", not "a.b".
+      The expanded name has an empty label, which cannot be queried; per
+      section 4.8 handling of such domains is undefined (no-match and
+      permerror are both acceptable), but expanding to "a.b" and matching
+      is not.
+    spec: 7.3/17, 4.8/5
+    mailfrom: "a..b@empties.net"
+    host: 1.2.3.4
+    result: [fail, permerror]
+    skip: We drop empty parts when splitting macro values, giving pass here.
+  macro-truncation:
+    description: |
+      RFC 7208 section 7.3: when the result of macro expansion is used in a
+      domain name query and exceeds 253 characters, the left side is
+      truncated to fit, by removing successive domain labels (and their
+      following dots) until the total length does not exceed 253
+      characters.
+      Here %{h} is a 255-character name; after appending ".trunc.net" the
+      first label has to be removed, and the resulting 201-character name
+      does exist.
+    spec: 7.3/25
+    helo: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc.ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+    mailfrom: "foo@trunc.net"
+    host: 1.2.3.4
+    result: pass
+    skip: We don't truncate expanded domains to 253 characters.
+zonedata:
+  macrod.net:
+    - SPF: v=spf1 exists:x.%{d127} -all
+  x.macrod.net:
+    - A: 127.0.0.2
+  zerod.net:
+    - SPF: v=spf1 exists:%{d0}.zero.net -all
+  macrov.net:
+    - SPF: v=spf1 exists:%{ir}.%{v}.macrov.net -all
+  4.3.2.1.in-addr.macrov.net:
+    - A: 127.0.0.2
+  1.0.b.c.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.8.b.d.0.1.0.0.2.ip6.macrov.net:
+    - A: 127.0.0.2
+  escape.net:
+    - SPF: v=spf1 exists:%{S}.esc.escape.net -all
+  bar%40escape.net.esc.escape.net:
+    - A: 127.0.0.2
+  pmacro.net:
+    - SPF: v=spf1 exists:%{p}.pmacro.net -all
+  unknown.pmacro.net:
+    - A: 127.0.0.2
+  nolocal.net:
+    - SPF: v=spf1 exists:%{l}.l.nolocal.net -all
+  postmaster.l.nolocal.net:
+    - A: 127.0.0.2
+  hel.nullsender.net:
+    - SPF: v=spf1 exists:%{l}.l.nullsender.net -all
+  postmaster.l.nullsender.net:
+    - A: 127.0.0.2
+  empties.net:
+    - SPF: v=spf1 exists:%{l}.l.empties.net -all
+  a.b.l.empties.net:
+    - A: 127.0.0.2
+  trunc.net:
+    - SPF: v=spf1 exists:%{h}.trunc.net -all
+  bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc.ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd.trunc.net:
+    - A: 127.0.0.2
+---
+description: MX address record limit boundary
+tests:
+  mx-at-10-records:
+    description: |
+      RFC 7208 section 4.6.4: the evaluation of each "MX" record MUST NOT
+      result in querying more than 10 address records. Exactly 10 MX
+      records is within the limit and must be evaluated normally.
+      The over-limit case (11 records) is covered by rfc7208-tests.yml
+      (mx-limit); this is the boundary.
+    spec: 4.6.4/2
+    mailfrom: "foo@mx10.net"
+    host: 1.2.3.4
+    result: pass
+zonedata:
+  mx10.net:
+    - SPF: v=spf1 mx -all
+    - MX: [1, mxno.mx10.net]
+    - MX: [2, mxno.mx10.net]
+    - MX: [3, mxno.mx10.net]
+    - MX: [4, mxno.mx10.net]
+    - MX: [5, mxno.mx10.net]
+    - MX: [6, mxno.mx10.net]
+    - MX: [7, mxno.mx10.net]
+    - MX: [8, mxno.mx10.net]
+    - MX: [9, mxno.mx10.net]
+    - MX: [10, mxyes.mx10.net]
+  mxno.mx10.net:
+    - A: 10.0.0.1
+  mxyes.mx10.net:
+    - A: 1.2.3.4
+---
+description: Temperror from mechanism DNS lookups
+tests:
+  a-lookup-error:
+    description: |
+      RFC 7208 section 5: for the DNS queries done by mechanisms, if the
+      DNS server returns an error or the query times out, the mechanism
+      stops and the topmost check_host() returns temperror. Here, on the
+      address lookup of an "a" mechanism.
+    spec: 5/8
+    mailfrom: "foo@aerr.net"
+    host: 1.2.3.4
+    result: temperror
+  mx-lookup-error:
+    description: |
+      Like a-lookup-error, on the MX lookup of an "mx" mechanism.
+    spec: 5/8
+    mailfrom: "foo@mxerr.net"
+    host: 1.2.3.4
+    result: temperror
+  mx-target-lookup-error:
+    description: |
+      Like a-lookup-error, on the address lookup of one of the hosts
+      returned by the MX lookup of an "mx" mechanism.
+    spec: 5/8
+    mailfrom: "foo@mxerr2.net"
+    host: 1.2.3.4
+    result: temperror
+zonedata:
+  aerr.net:
+    - SPF: v=spf1 a:err.aerr.net -all
+  err.aerr.net:
+    - TIMEOUT: true
+  mxerr.net:
+    - SPF: v=spf1 mx:err.mxerr.net -all
+  err.mxerr.net:
+    - TIMEOUT: true
+  mxerr2.net:
+    - SPF: v=spf1 mx -all
+    - MX: [10, err.mxerr2.net]
+  err.mxerr2.net:
+    - TIMEOUT: true
+---
+description: Redirect and the lookup limit
+tests:
+  redirect-at-limit:
+    description: |
+      RFC 7208 section 4.6.4 includes the "redirect" modifier among the
+      terms that cause DNS queries and count against the limit of 10.
+      Here the redirect is the 10th such term, so it is still followed.
+    spec: 4.6.4/1
+    mailfrom: "foo@at10.redir.net"
+    host: 1.2.3.4
+    result: pass
+  redirect-over-limit:
+    description: |
+      Like redirect-at-limit, but the redirect is the 11th term that causes
+      DNS queries, which exceeds the limit and must permerror (rather than,
+      for example, being ignored).
+    spec: 4.6.4/1
+    mailfrom: "foo@over10.redir.net"
+    host: 1.2.3.4
+    result: permerror
+zonedata:
+  at10.redir.net:
+    - SPF: v=spf1 a:nm.redir.net a:nm.redir.net a:nm.redir.net
+                  a:nm.redir.net a:nm.redir.net a:nm.redir.net
+                  a:nm.redir.net a:nm.redir.net a:nm.redir.net
+                  redirect=target.redir.net
+  over10.redir.net:
+    - SPF: v=spf1 a:nm.redir.net a:nm.redir.net a:nm.redir.net
+                  a:nm.redir.net a:nm.redir.net a:nm.redir.net
+                  a:nm.redir.net a:nm.redir.net a:nm.redir.net
+                  a:nm.redir.net redirect=target.redir.net
+  nm.redir.net:
+    - A: 10.0.0.1
+  target.redir.net:
+    - SPF: v=spf1 ip4:1.2.3.4 -all
+---
+description: PTR reverse lookup errors
+tests:
+  ptr-reverse-lookup-error:
+    description: |
+      RFC 7208 section 5.5: "If a DNS error occurs while doing the PTR RR
+      lookup, then this mechanism fails to match." This is an explicit
+      exception to the general rule of section 5 that DNS errors cause
+      temperror, because the reverse zone is controlled by the owner of
+      the connecting IP, not by the publishing domain.
+    spec: 5.5/7
+    mailfrom: "foo@ptrerr.net"
+    host: 1.2.3.4
+    result: softfail
+    skip: We return temperror instead of treating it as a no-match.
+zonedata:
+  ptrerr.net:
+    - SPF: v=spf1 ptr ~all
+  4.3.2.1.in-addr.arpa:
+    - TIMEOUT: true
+---
+description: IP4 network syntax
+tests:
+  ip4-octet-over-255:
+    description: |
+      RFC 7208 section 5.6: the qnum ABNF limits each octet to 0-255, so
+      values above that are a syntax error.
+    spec: 5.6/2
+    mailfrom: "foo@byte.ipfour.net"
+    host: 1.2.3.4
+    result: permerror
+  ip4-leading-zero:
+    description: |
+      RFC 7208 section 5.6: the qnum ABNF does not allow leading zeros
+      ("conventional dotted-quad notation"), so they are a syntax error.
+    spec: 5.6/2
+    mailfrom: "foo@zero.ipfour.net"
+    host: 1.2.3.4
+    result: permerror
+  ip4-empty-cidr:
+    description: |
+      RFC 7208 section 5.6: ip4-cidr-length requires at least one digit
+      after the "/", so a trailing slash is a syntax error.
+    spec: 5.6/2
+    mailfrom: "foo@cidr.ipfour.net"
+    host: 1.2.3.4
+    result: permerror
+zonedata:
+  byte.ipfour.net:
+    - SPF: v=spf1 ip4:1.2.3.256 -all
+  zero.ipfour.net:
+    - SPF: v=spf1 ip4:01.2.3.4 -all
+  cidr.ipfour.net:
+    - SPF: v=spf1 ip4:1.2.3.4/ -all
+---
+description: Modifier syntax edge cases
+tests:
+  qualifier-on-modifier:
+    description: |
+      Qualifiers apply to mechanisms only: directive = [qualifier]
+      mechanism. A qualifier on a modifier ("+redirect=...") makes the term
+      invalid (it is not an unknown-modifier either, since a modifier name
+      must start with ALPHA), so the record has a syntax error.
+    spec: 4.6.1/3, 12/2
+    mailfrom: "foo@qualmod.net"
+    host: 1.2.3.4
+    result: permerror
+  unknown-mechanism:
+    description: |
+      RFC 7208 section 4.6.1: terms that do not contain any of "=", ":" or
+      "/" are mechanisms; an unknown mechanism name is a syntax error, and
+      it must be caught even if a later term would match.
+    spec: 4.6.1/5, 4.6/1
+    mailfrom: "foo@unkmech.net"
+    host: 1.2.3.4
+    result: permerror
+  unknown-modifier-repeated:
+    description: |
+      RFC 7208 section 6: unrecognized modifiers MUST be ignored no matter
+      where, or *how often*, they appear in a record. Only "redirect" and
+      "exp" are limited to appearing once.
+    spec: 6/3
+    mailfrom: "foo@unkmod.net"
+    host: 1.2.3.4
+    result: pass
+  unknown-modifier-mechanism-name:
+    description: |
+      A term like "all=..." or "mx=..." is an unknown modifier, not a
+      mechanism: modifiers always contain "=" immediately after the name
+      (RFC 7208 section 4.6.1), and neither "all" nor "mx" take an "="
+      argument. They must be ignored, not treated as mechanisms or as
+      syntax errors.
+    spec: 4.6.1/4, 6/3
+    mailfrom: "foo@mechmod.net"
+    host: 1.2.3.4
+    result: pass
+  unknown-modifier-empty-value:
+    description: |
+      The value of an unknown modifier is a macro-string, which can be
+      empty: unknown-modifier = name "=" macro-string, with macro-string
+      allowing zero characters. "foo=" is thus valid and ignored.
+    spec: 12/2
+    mailfrom: "foo@emptymod.net"
+    host: 1.2.3.4
+    result: pass
+zonedata:
+  qualmod.net:
+    - SPF: v=spf1 +redirect=target.qualmod.net ~all
+  target.qualmod.net:
+    - SPF: v=spf1 ip4:1.2.3.4 -all
+  unkmech.net:
+    - SPF: v=spf1 foobar ip4:1.2.3.4 -all
+  unkmod.net:
+    - SPF: v=spf1 moo=cow moo=bull ip4:1.2.3.4 -all
+  mechmod.net:
+    - SPF: v=spf1 all=deny mx=1.2.3.4 ip4:1.2.3.4 -all
+  emptymod.net:
+    - SPF: v=spf1 foo= ip4:1.2.3.4 -all

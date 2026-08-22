@@ -191,6 +191,13 @@ func testRFC(t *testing.T, fname string) {
 						IsTemporary: false,
 					}
 				}
+				// Errors on reverse-DNS zones must also be keyed by IP,
+				// because that is how the resolver is queried for them (see
+				// the PTR handling below).
+				if err, ok := dns.Errors[domain]; ok &&
+					strings.HasSuffix(domain, ".arpa") {
+					dns.Errors[reverseDNS(t, domain).String()] = err
+				}
 				for _, s := range record.A {
 					dns.Ip[domain] = append(dns.Ip[domain], net.ParseIP(s))
 				}
