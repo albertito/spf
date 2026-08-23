@@ -107,7 +107,6 @@ tests:
     host: 1.2.3.4
     mailfrom: "foobar@hosed2.example.com"
     result: permerror
-    skip: We don't enforce 7-bit ascii.
   non-ascii-result:
     description: >-
       SPF policies are restricted to 7-bit ascii.
@@ -414,7 +413,6 @@ tests:
     host: 1.2.3.5
     mailfrom: foo@t6.example.com
     result: fail
-    skip: Not worth the complexity of erroring on this.
   default-result:
     description: Default result is neutral.
     spec: 4.7/1
@@ -1880,7 +1878,6 @@ tests:
     host: 1.2.3.4
     mailfrom: foo@e19.example.com
     result: neutral
-    skip: Not worth the complexity of erroring on this.
   default-modifier-obsolete2:
     description: |
       Unknown modifiers do not modify the RFC SPF result.
@@ -1892,7 +1889,6 @@ tests:
     host: 1.2.3.4
     mailfrom: foo@e20.example.com
     result: neutral
-    skip: Not worth the complexity of erroring on this.
   non-ascii-exp:
     description: >-
       SPF explanation text is restricted to 7-bit ascii.
@@ -2174,7 +2170,6 @@ tests:
     host: 192.168.218.40
     mailfrom: test@e9.example.com
     result: pass
-    skip: We don't have a HELO-explicit mode.
   invalid-hello-macro:
     spec: 8.1/2
     description: |-
