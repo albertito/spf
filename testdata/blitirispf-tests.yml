@@ -1079,7 +1079,6 @@ tests:
     mailfrom: "foo@ptrerr.net"
     host: 1.2.3.4
     result: softfail
-    skip: We return temperror instead of treating it as a no-match.
 zonedata:
   ptrerr.net:
     - SPF: v=spf1 ptr ~all

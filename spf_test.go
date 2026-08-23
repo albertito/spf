@@ -424,8 +424,13 @@ func TestDNSTemporaryErrors(t *testing.T) {
 		{"v=spf1 include:tmperr", TempError},
 		{"v=spf1 a:tmperr", TempError},
 		{"v=spf1 mx:tmperr", TempError},
-		{"v=spf1 ptr:tmperr", TempError},
 		{"v=spf1 mx:tmpmx", TempError},
+
+		// "ptr" is the exception: a DNS error on the reverse lookup makes
+		// the mechanism fail to match, so we fall through to the end of the
+		// record and get neutral.
+		// https://tools.ietf.org/html/rfc7208#section-5.5
+		{"v=spf1 ptr:tmperr", Neutral},
 	}
 
 	for _, c := range cases {
@@ -460,11 +465,16 @@ func TestDNSPermanentErrors(t *testing.T) {
 
 		// RFC specifies that on any DNS error (other than NXDOMAIN),
 		// we must return TempError.
-		// https://www.rfc-editor.org/rfc/rfc7208#section-5
+		// https://tools.ietf.org/html/rfc7208#section-5
 		{"v=spf1 a:permerr", TempError},
 		{"v=spf1 mx:permerr", TempError},
-		{"v=spf1 ptr:permerr", TempError},
 		{"v=spf1 mx:permmx", TempError},
+
+		// "ptr" is the exception: a DNS error on the reverse lookup makes
+		// the mechanism fail to match, so we fall through to the end of the
+		// record and get neutral.
+		// https://tools.ietf.org/html/rfc7208#section-5.5
+		{"v=spf1 ptr:permerr", Neutral},
 	}
 
 	for _, c := range cases {

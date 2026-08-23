@@ -639,11 +639,14 @@ func (r *resolution) ptrField(res Result, field, domain string) (bool, Result, e
 			return true, PermError, verr
 		}
 		if err != nil {
-			// https://tools.ietf.org/html/rfc7208#section-5
-			if isNotFound(err) {
-				return false, "", err
-			}
-			return true, TempError, err
+			// Any DNS error here makes the mechanism fail to match, instead
+			// of the temperror that section 5 prescribes for the other
+			// mechanisms. The reverse zone is controlled by the operator of
+			// the connecting IP, not by the domain publishing the record, so
+			// errors in it must not affect the result.
+			// https://tools.ietf.org/html/rfc7208#section-5.5
+			r.trace("ptr reverse lookup error, no match: %v", err)
+			return false, "", err
 		}
 
 		// Only take the first 10 names, ignore the rest.
